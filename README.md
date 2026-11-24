@@ -17,6 +17,9 @@ lanches entram depois, sobre a mesma base.
   (só administrador).
 - O zoom fica travado no app, para um toque na chamada nunca virar zoom sem
   querer, e é liberado no relatório e na tela de impressão.
+- **A chamada funciona sem internet.** Os integrantes ficam guardados no
+  aparelho e a chamada salva offline entra numa fila, enviada sozinha quando a
+  conexão volta (ou na próxima vez que o app abrir).
 - Toda gravação é registrada na aba `Logs`.
 
 ## Como ligar tudo (uma vez)

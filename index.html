@@ -22,9 +22,25 @@
   <body>
     <div id="root"></div>
     <div id="abertura">
-      <img src="icone-512.png" alt="Grupo Escoteiro Canaa 52" />
-      <p>CANAA 52 &middot; DF</p>
+      <img src="icone-512.png?v=2" alt="Grupo Escoteiro Canaa 52" />
+      <p id="abertura-frase">Sempre alerta para servir.</p>
     </div>
+    <script>
+      (function () {
+        var frases = [
+          'Sempre alerta para servir.',
+          'Deixe o mundo melhor do que voce o encontrou.',
+          'Melhor esforco, todo dia.',
+          'Uma boa acao por dia.',
+          'Aqui se aprende fazendo.',
+          'A felicidade esta em fazer os outros felizes.',
+          'Natureza, servico e amizade.',
+          'O caminho se faz caminhando.'
+        ];
+        var no = document.getElementById('abertura-frase');
+        if (no) no.textContent = frases[Math.floor(Math.random() * frases.length)];
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

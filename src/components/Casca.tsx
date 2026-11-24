@@ -11,8 +11,8 @@ const ABAS = [
 
 export function Casca() {
   return (
-    <div className="min-h-dvh bg-paper pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <div className="min-h-dvh bg-paper pb-[calc(56px+env(safe-area-inset-bottom))]">
+      <header className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-2.5 pt-[calc(0.6rem+env(safe-area-inset-top))]">
         <Marca />
       </header>
 
@@ -30,14 +30,14 @@ export function Casca() {
             end={aba.para === '/'}
             className={({ isActive }) =>
               [
-                'flex flex-col items-center gap-1 border-t-2 py-2.5 text-[11px] font-medium',
+                'flex flex-col items-center gap-0.5 border-t-2 py-1.5 text-[10.5px] font-medium',
                 isActive ? 'border-ouro text-texto' : 'border-transparent text-muted',
               ].join(' ')
             }
           >
             {({ isActive }) => (
               <>
-                <Icone nome={aba.icone} className={isActive ? 'h-6 w-6' : 'h-6 w-6 opacity-70'} />
+                <Icone nome={aba.icone} className={isActive ? 'h-5 w-5' : 'h-5 w-5 opacity-70'} />
                 {aba.rotulo}
               </>
             )}

@@ -4,6 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
+import { enfileirar, enviarFila, pendenteDe, pendentes } from '../lib/local';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
 
@@ -30,6 +31,29 @@ export function Chamada() {
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [naFila, setNaFila] = useState(() => pendentes().length);
+  const [compacto, setCompacto] = useState(false);
+
+  // O topo encolhe ao rolar, mas nunca sai da tela: data e ramo continuam à mão.
+  useEffect(() => {
+    const aoRolar = () => setCompacto(window.scrollY > 36);
+    aoRolar();
+    window.addEventListener('scroll', aoRolar, { passive: true });
+    return () => window.removeEventListener('scroll', aoRolar);
+  }, []);
+
+  // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
+  useEffect(() => {
+    const despachar = async () => {
+      if (!pendentes().length) return;
+      const r = await enviarFila((c) => api('presencas.salvar', { data: c.data, ramo: c.ramo, itens: c.itens }));
+      setNaFila(r.restantes);
+      if (r.enviadas) setAviso(`${r.enviadas} ${r.enviadas === 1 ? 'chamada guardada foi enviada' : 'chamadas guardadas foram enviadas'}.`);
+    };
+    void despachar();
+    window.addEventListener('online', despachar);
+    return () => window.removeEventListener('online', despachar);
+  }, [api]);
 
   const ramos = useMemo(
     () => ordenarRamos(integrantes.filter((i) => i.status === 'Ativo').map((i) => i.ramo)),
@@ -72,10 +96,27 @@ export function Chamada() {
             iniciais[alvo.id] = { status: 'Falta justificada', justificativa: r.justificativa ?? '' };
           }
         });
-        setMarcas(iniciais);
+        const guardada = pendenteDe(data, ramoAtual);
+        if (guardada) {
+          const daFila: Record<string, Marca> = {};
+          guardada.itens.forEach((item) => {
+            if (item.status === 'Presente') daFila[item.idIntegrante] = { status: 'Presente', justificativa: '' };
+            else if (item.status === 'Falta justificada')
+              daFila[item.idIntegrante] = { status: 'Falta justificada', justificativa: item.justificativa };
+          });
+          setMarcas(daFila);
+        } else {
+          setMarcas(iniciais);
+        }
       })
       .catch((e) => {
-        if (!cancelado) setErro(e instanceof ErroApi ? e.message : 'Não foi possível buscar a chamada.');
+        if (cancelado) return;
+        if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
+          setExistente(null);
+          setMarcas({});
+        } else {
+          setErro(e instanceof ErroApi ? e.message : 'Não foi possível buscar a chamada.');
+        }
       })
       .finally(() => {
         if (!cancelado) setBuscando(false);
@@ -134,7 +175,13 @@ export function Chamada() {
       setAviso(`Chamada salva: ${r.presentes} presentes de ${r.gravados}.`);
       setExistente({ data, ramo: ramoAtual, registros: {}, total: r.gravados });
     } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a chamada.');
+      if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
+        enfileirar({ data, ramo: ramoAtual, itens });
+        setNaFila(pendentes().length);
+        setAviso('Sem internet agora. A chamada ficou guardada no aparelho e vai sozinha quando a conexão voltar.');
+      } else {
+        setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a chamada.');
+      }
     } finally {
       setSalvando(false);
     }
@@ -144,20 +191,26 @@ export function Chamada() {
   if (erroIntegrantes) return <Erro mensagem={erroIntegrantes} />;
 
   return (
-    <main className="pb-28">
-      <div className="border-b border-line bg-card px-4 py-4">
+    <main className="pb-24">
+      <div className={`sticky top-[52px] z-10 border-b border-line bg-card px-4 ${compacto ? 'py-2' : 'py-3.5'}`}>
         <label className="block">
-          <span className="font-display text-xl font-[600] tracking-tight">Chamada</span>
+          {compacto ? null : (
+            <span className="font-display text-xl font-[600] tracking-tight">Chamada</span>
+          )}
           <input
             type="date"
             value={data}
             onChange={(e) => setData(e.target.value)}
-            className="mt-2 block w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+            className={`block w-full rounded-lg border border-line bg-paper px-3 ${
+              compacto ? 'py-1.5 text-[14px]' : 'mt-2 py-2.5 text-[15px]'
+            }`}
           />
         </label>
-        <p className="mt-2 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
+        {compacto ? null : (
+          <p className="mt-2 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
+        )}
 
-        <div className="-mx-4 mt-3.5 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 ${compacto ? 'mt-2' : 'mt-3.5'}`}>
           {ramos.map((nome) => {
             const r = corDoRamo(nome);
             const ativo = nome === ramoAtual;
@@ -167,7 +220,7 @@ export function Chamada() {
                 type="button"
                 onClick={() => setRamoAtual(nome)}
                 aria-pressed={ativo}
-                className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold"
+                className={`shrink-0 rounded-full font-semibold ${compacto ? 'px-3.5 py-1.5 text-[13px]' : 'px-4 py-2 text-[14px]'}`}
                 style={
                   ativo
                     ? { background: r.cor, color: 'var(--color-preto)' }
@@ -179,9 +232,15 @@ export function Chamada() {
             );
           })}
         </div>
-      </div>
 
-      {buscando ? <Carregando texto="Buscando a chamada deste dia" /> : null}
+        {/* Carregar é detalhe: uma linha fina, sem empurrar a lista para baixo. */}
+        <div aria-hidden={!buscando} className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden">
+          {buscando ? <div className="h-full w-1/3 animate-[desliza_1.1s_ease-in-out_infinite] bg-ouro" /> : null}
+        </div>
+        <span className="sr-only" role="status">
+          {buscando ? 'Buscando a chamada deste dia' : ''}
+        </span>
+      </div>
 
       {existente && existente.total > 0 && !buscando ? (
         <p className="mx-4 mt-4 rounded-lg bg-card px-3.5 py-2.5 text-[13px] leading-relaxed text-muted">
@@ -222,8 +281,13 @@ export function Chamada() {
       ) : null}
 
       {lista.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
-          {aviso ? <p className="pb-2 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
+        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-2 backdrop-blur">
+          {aviso ? <p className="pb-1.5 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
+          {naFila > 0 && !aviso ? (
+            <p className="pb-1.5 text-[13px] font-medium text-justificada" role="status">
+              {naFila === 1 ? '1 chamada guardada no aparelho' : `${naFila} chamadas guardadas no aparelho`}, aguardando internet.
+            </p>
+          ) : null}
           <div className="flex items-center gap-3">
             <p className="font-display text-[15px] font-[600]">
               {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.faltas} faltas</span>
@@ -232,7 +296,7 @@ export function Chamada() {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60"
+              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2 text-[15px] font-semibold text-preto disabled:opacity-60"
             >
               <Icone nome="salvar" className="h-4.5 w-4.5" />
               {salvando ? 'Salvando' : 'Salvar chamada'}

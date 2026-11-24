@@ -1,5 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ProvedorAuth, useAuth } from './lib/auth';
+import { frase } from './lib/frases';
 import { ProvedorDados } from './lib/dados';
 import { Casca } from './components/Casca';
 import { Login } from './pages/Login';
@@ -17,7 +18,8 @@ function Rotas() {
     return carregando ? (
       <main className="grid min-h-dvh place-items-center gap-5 bg-preto text-texto">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-28 w-28" />
-        <p className="text-sm text-ouro">Verificando seu acesso…</p>
+        <p className="max-w-[26ch] px-6 text-center font-display text-[17px] leading-snug text-ouro">{frase()}</p>
+        <p className="text-[13px] text-muted">Verificando seu acesso…</p>
       </main>
     ) : (
       <Login />

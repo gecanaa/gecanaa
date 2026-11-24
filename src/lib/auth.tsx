@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { chamar, ErroApi } from './api';
+import { gravar, ler as lerLocal } from './local';
 import type { Usuario } from './tipos';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const CHAVE_TOKEN = 'sge:sessao';
+const CHAVE_USUARIO = 'sge:usuario';
 
 type Contexto = {
   usuario: Usuario | null;
@@ -67,9 +69,19 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
         }
       }
       localStorage.setItem(CHAVE_TOKEN, guardar);
+      gravar(CHAVE_USUARIO, u);
       setToken(guardar);
       setUsuario(u);
     } catch (e) {
+      // Sem rede, com sessão válida no aparelho, o app abre com o último acesso conhecido.
+      const guardadoUsuario = lerLocal<Usuario>(CHAVE_USUARIO);
+      if (e instanceof ErroApi && e.codigo === 'SEM_REDE' && guardadoUsuario && credencial.startsWith('s1.')) {
+        setToken(credencial);
+        setUsuario(guardadoUsuario);
+        setErro(null);
+        setCarregando(false);
+        return;
+      }
       localStorage.removeItem(CHAVE_TOKEN);
       setToken(null);
       setUsuario(null);
@@ -135,6 +147,7 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
   const sair = useCallback(() => {
     window.google?.accounts.id.disableAutoSelect();
     localStorage.removeItem(CHAVE_TOKEN);
+    localStorage.removeItem(CHAVE_USUARIO);
     setToken(null);
     setUsuario(null);
     setErro(null);

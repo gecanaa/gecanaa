@@ -1,9 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useApi } from './auth';
 import { ErroApi } from './api';
+import { gravar, ler as lerLocal } from './local';
 import type { Integrante } from './tipos';
 
 export type Config = { justificativaAtiva: boolean };
+
+const CACHE_INTEGRANTES = 'sge:integrantes';
+const CACHE_CONFIG = 'sge:config';
 
 type Contexto = {
   integrantes: Integrante[];
@@ -13,6 +17,7 @@ type Contexto = {
   erro: string | null;
   recarregar: () => Promise<void>;
   aplicar: (i: Integrante) => void;
+  semRede: boolean;
 };
 
 const Dados = createContext<Contexto | null>(null);
@@ -20,8 +25,9 @@ const Dados = createContext<Contexto | null>(null);
 /** Os integrantes são lidos uma vez e reaproveitados pelas telas. */
 export function ProvedorDados({ children }: { children: ReactNode }) {
   const api = useApi();
-  const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
-  const [config, setConfig] = useState<Config>({ justificativaAtiva: false });
+  const [integrantes, setIntegrantes] = useState<Integrante[]>(() => lerLocal<Integrante[]>(CACHE_INTEGRANTES) ?? []);
+  const [config, setConfig] = useState<Config>(() => lerLocal<Config>(CACHE_CONFIG) ?? { justificativaAtiva: false });
+  const [semRede, setSemRede] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -36,8 +42,18 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
       lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       setIntegrantes(lista);
       setConfig(c);
+      gravar(CACHE_INTEGRANTES, lista);
+      gravar(CACHE_CONFIG, c);
+      setSemRede(false);
     } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível carregar os integrantes.');
+      // Sem internet, o app segue com a última cópia baixada.
+      const guardados = lerLocal<Integrante[]>(CACHE_INTEGRANTES);
+      if (e instanceof ErroApi && e.codigo === 'SEM_REDE' && guardados?.length) {
+        setIntegrantes(guardados);
+        setSemRede(true);
+      } else {
+        setErro(e instanceof ErroApi ? e.message : 'Não foi possível carregar os integrantes.');
+      }
     } finally {
       setCarregando(false);
     }
@@ -63,7 +79,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Dados.Provider value={{ integrantes, config, salvarConfig, carregando, erro, recarregar, aplicar }}>
+    <Dados.Provider value={{ integrantes, config, salvarConfig, carregando, erro, recarregar, aplicar, semRede }}>
       {children}
     </Dados.Provider>
   );

@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { frase } from '../lib/frases';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.png`;
 
 export function Carregando({ texto = 'Carregando' }: { texto?: string }) {
+  const [dito] = useState(frase);
   return (
-    <p className="px-5 py-10 text-center text-sm text-muted" role="status">
-      {texto}…
-    </p>
+    <div className="px-8 py-12 text-center" role="status">
+      <p className="font-display text-[15px] leading-snug text-ouro">{dito}</p>
+      <p className="mt-2 text-[13px] text-muted">{texto}…</p>
+    </div>
   );
 }
 

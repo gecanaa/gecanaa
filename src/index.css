@@ -47,6 +47,11 @@ body {
   outline-offset: 2px;
 }
 
+@keyframes desliza {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
@@ -63,7 +68,16 @@ body {
   z-index: 50;
 }
 #abertura img { width: 128px; height: 128px; }
-#abertura p { margin: 0; color: var(--color-ouro); font-size: 0.85rem; letter-spacing: 0.08em; }
+#abertura p {
+  margin: 0;
+  max-width: 24ch;
+  padding: 0 1.5rem;
+  color: var(--color-ouro);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  text-align: center;
+}
 .montado #abertura { display: none; }
 
 /* Impressão: só o conteúdo, em preto sobre branco. */

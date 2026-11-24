@@ -181,7 +181,7 @@ export function Ficha() {
         </div>
       )}
 
-      <div className="nao-imprime sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-8 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
+      <div className="nao-imprime sticky bottom-[calc(56px+env(safe-area-inset-bottom))] mt-8 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
         {editando ? (
           <div className="flex gap-3">
             <button type="button" onClick={cancelar} className="rounded-full px-5 py-2.5 text-[15px] font-semibold text-muted">
