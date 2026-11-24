@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Archivo", sans-serif;
+
+  --color-ink: #11201c;
+  --color-ink-soft: #2c3a35;
+  --color-paper: #fafaf8;
+  --color-card: #ffffff;
+  --color-line: #dbdcd4;
+  --color-muted: #5c6660;
+
+  --color-lobinho: #e8a00c;
+  --color-escoteiro: #0f7a3d;
+  --color-senior: #1f5fa8;
+  --color-pioneiro: #8e1c2b;
+  --color-equipe: #4a4a55;
+
+  --color-presente: #0f7a3d;
+  --color-falta: #b3261e;
+  --color-justificada: #8a6a00;
+}
+
+html {
+  background: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior-y: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
