@@ -4,6 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
+import { ModalIntegrante } from '../components/ModalIntegrante';
 import { enfileirar, enviarFila, pendenteDe, pendentes } from '../lib/local';
 import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
 import { Icone } from '../components/Icone';
@@ -33,6 +34,7 @@ export function Chamada() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [naFila, setNaFila] = useState(() => pendentes().length);
+  const [vendo, setVendo] = useState<Integrante | null>(null);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
   useEffect(() => {
@@ -269,7 +271,7 @@ export function Chamada() {
 
           <ul>
             {lista.map((i) => (
-              <LinhaChamada key={i.id} integrante={i} marca={marcas[i.id]} onToque={() => alternar(i.id)} onJustificar={(texto) =>
+              <LinhaChamada key={i.id} integrante={i} marca={marcas[i.id]} onToque={() => alternar(i.id)} onAbrir={() => setVendo(i)} onJustificar={(texto) =>
                 setMarcas((atual) => ({ ...atual, [i.id]: { status: 'Falta justificada', justificativa: texto } }))
               } />
             ))}
@@ -301,6 +303,8 @@ export function Chamada() {
           </div>
         </div>
       ) : null}
+
+      {vendo ? <ModalIntegrante integrante={vendo} aoFechar={() => setVendo(null)} /> : null}
     </main>
   );
 }
@@ -309,11 +313,13 @@ function LinhaChamada({
   integrante,
   marca,
   onToque,
+  onAbrir,
   onJustificar,
 }: {
   integrante: Integrante;
   marca?: Marca;
   onToque: () => void;
+  onAbrir: () => void;
   onJustificar: (texto: string) => void;
 }) {
   const r = corDoRamo(integrante.ramo);
@@ -321,28 +327,35 @@ function LinhaChamada({
 
   return (
     <li className="border-b border-line">
-      <button
-        type="button"
-        onClick={onToque}
-        aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', falta'}`}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+      <div
+        className="flex items-center gap-3 px-4 py-3"
         style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 18%, var(--color-card))` } : { background: 'var(--color-card)' }}
       >
-        <Avatar foto={integrante.foto} nome={integrante.nome} cor={r.cor} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium">{integrante.nome.trim()}</span>
-          {integrante.alergia && integrante.alergia.toLowerCase() !== 'nenhuma' ? (
-            <span className="block truncate text-[12px] text-falta">Alergia: {integrante.alergia}</span>
-          ) : null}
-        </span>
-        <span
-          aria-hidden="true"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-[17px] font-[800] text-preto"
-          style={{ background: aparencia?.cor ?? 'transparent', boxShadow: aparencia ? 'none' : 'inset 0 0 0 1.5px var(--color-line)' }}
+        <button type="button" onClick={onAbrir} aria-label={`Ver dados de ${integrante.nome.trim()}`} className="shrink-0 rounded-full">
+          <Avatar foto={integrante.foto} nome={integrante.nome} cor={r.cor} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onToque}
+          aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', falta'}`}
+          className="flex min-w-0 flex-1 items-center gap-3 py-1 text-left"
         >
-          {aparencia?.letra ?? ''}
-        </span>
-      </button>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-medium">{integrante.nome.trim()}</span>
+            {integrante.alergia && integrante.alergia.toLowerCase() !== 'nenhuma' ? (
+              <span className="block truncate text-[12px] text-falta">Alergia: {integrante.alergia}</span>
+            ) : null}
+          </span>
+          <span
+            aria-hidden="true"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-[17px] font-[800] text-preto"
+            style={{ background: aparencia?.cor ?? 'transparent', boxShadow: aparencia ? 'none' : 'inset 0 0 0 1.5px var(--color-line)' }}
+          >
+            {aparencia?.letra ?? ''}
+          </span>
+        </button>
+      </div>
 
       {marca?.status === 'Falta justificada' ? (
         <label className="block bg-[color-mix(in_srgb,var(--color-justificada)_14%,var(--color-card))] px-4 pb-3">

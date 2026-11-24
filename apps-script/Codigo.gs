@@ -19,6 +19,19 @@ const ABAS = {
 
 const COL_ID_INTEGRANTE = 'ID Integrante';
 
+/**
+ * Rode uma vez pelo editor (Executar) depois de colar este código: o Google
+ * pede a autorização das permissões novas, inclusive a do Drive usada para
+ * guardar as fotos. Sem isso, o envio de foto falha na primeira tentativa.
+ */
+function autorizar() {
+  const planilha = planilha_();
+  const pasta = pastaDeFotos_();
+  Logger.log('Planilha: ' + planilha.getName());
+  Logger.log('Pasta das fotos: ' + pasta.getName());
+  Logger.log('Tudo autorizado.');
+}
+
 // ---------------------------------------------------------------- entrada HTTP
 
 function doGet(e) {
@@ -57,6 +70,7 @@ function despachar_(action, payload, token) {
     case 'config.salvar':          return salvarConfig_(usuario, payload);
     case 'integrantes.listar':     return listarIntegrantes_();
     case 'integrantes.salvar':     return salvarIntegrante_(usuario, payload);
+    case 'foto.enviar':            return enviarFoto_(usuario, payload);
     case 'presencas.chamada':      return lerChamada_(payload);
     case 'presencas.salvar':       return salvarChamada_(usuario, payload);
     case 'presencas.resumo':       return resumoPresencas_(payload);
@@ -333,6 +347,43 @@ function salvarIntegrante_(usuario, payload) {
       (existente ? 'Atualizou a ficha de: ' : 'Cadastrou: ') + linha['NOME']);
     return { id: linha['ID'], linha: numeroLinha };
   });
+}
+
+/**
+ * Recebe a foto tirada no celular (já reduzida pelo app) e guarda no Drive,
+ * numa pasta do próprio grupo, devolvendo o link no mesmo formato que a
+ * planilha sempre usou.
+ */
+function enviarFoto_(usuario, payload) {
+  const dados = String(payload.imagem || '');
+  const nome = String(payload.nome || 'integrante').trim() || 'integrante';
+  if (dados.indexOf('data:image/') !== 0) throw new Error('Formato de imagem não reconhecido.');
+
+  const tipo = dados.substring(5, dados.indexOf(';'));
+  const bytes = Utilities.base64Decode(dados.substring(dados.indexOf(',') + 1));
+  const blob = Utilities.newBlob(bytes, tipo,
+    nome.replace(/[^\p{L}\p{N} ]/gu, '').substring(0, 60) + ' - ' +
+    Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyyMMdd-HHmmss') + '.jpg');
+
+  const arquivo = pastaDeFotos_().createFile(blob);
+  arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  registrarLog_(usuario, 'Cadastro', 'Foto', 'Enviou a foto de: ' + nome);
+  return { url: 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w500' };
+}
+
+function pastaDeFotos_() {
+  const props = PropertiesService.getScriptProperties();
+  const guardada = props.getProperty('FOTOS_PASTA_ID');
+  if (guardada) {
+    try {
+      return DriveApp.getFolderById(guardada);
+    } catch (e) {
+      /* pasta apagada: cria outra abaixo */
+    }
+  }
+  const pasta = DriveApp.createFolder('Fotos SGE Canaã 52');
+  props.setProperty('FOTOS_PASTA_ID', pasta.getId());
+  return pasta;
 }
 
 // --------------------------------------------------------------------- presença

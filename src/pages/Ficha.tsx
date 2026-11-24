@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { useDados } from '../lib/dados';
 import { ramo as corDoRamo, RAMOS_JOVENS } from '../lib/ramos';
 import { Avatar, Carregando, Erro } from '../components/Estados';
+import { reduzir } from '../lib/foto';
 import { Icone } from '../components/Icone';
 import type { Integrante } from '../lib/tipos';
 
@@ -31,7 +32,9 @@ export function Ficha() {
   const [editando, setEditando] = useState(novo);
   const [rascunho, setRascunho] = useState<Integrante | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const camera = useRef<HTMLInputElement>(null);
 
   if (carregando) return <Carregando texto="Carregando ficha" />;
   if (!original) {
@@ -50,6 +53,21 @@ export function Ficha() {
 
   const editar = (campo: keyof Integrante, valor: string) =>
     setRascunho({ ...(rascunho ?? original), [campo]: valor });
+
+  const tirarFoto = async (arquivo: File) => {
+    setEnviandoFoto(true);
+    setErro(null);
+    try {
+      const imagem = await reduzir(arquivo);
+      const r2 = await api<{ url: string }>('foto.enviar', { imagem, nome: dados.nome || 'integrante' });
+      setRascunho({ ...(rascunho ?? original), foto: r2.url });
+      setEditando(true);
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível enviar a foto.');
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
 
   const salvar = async () => {
     if (!dados.nome.trim()) {
@@ -88,7 +106,33 @@ export function Ficha() {
       </div>
 
       <header className="flex items-center gap-3.5 px-4 pb-5" style={{ borderLeft: `6px solid ${r.cor}` }}>
-        <Avatar foto={dados.foto} nome={dados.nome || '?'} cor={r.cor} tamanho={64} />
+        <input
+          ref={camera}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          onChange={(e) => {
+            const arquivo = e.target.files?.[0];
+            e.target.value = '';
+            if (arquivo) void tirarFoto(arquivo);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => camera.current?.click()}
+          aria-label={dados.foto ? 'Trocar a foto' : 'Tirar a foto'}
+          className="relative shrink-0 rounded-full"
+          disabled={enviandoFoto}
+        >
+          <Avatar foto={dados.foto} nome={dados.nome || '?'} cor={r.cor} tamanho={64} />
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -bottom-0.5 grid h-6 w-6 place-items-center rounded-full bg-ouro text-[13px] text-preto"
+          >
+            {enviandoFoto ? '…' : '+'}
+          </span>
+        </button>
         <div className="min-w-0">
           <h1 className="font-display text-[1.45rem] leading-tight font-[700] tracking-tight">
             {dados.nome.trim() || 'Nova ficha'}
@@ -101,6 +145,12 @@ export function Ficha() {
       </header>
 
       {erro ? <Erro mensagem={erro} /> : null}
+
+      {enviandoFoto ? (
+        <p className="px-4 pb-3 text-[13px] text-ouro" role="status">
+          Enviando a foto…
+        </p>
+      ) : null}
 
       {/* O que se procura com pressa em atividade vem primeiro. */}
       <section className="mx-4 rounded-xl border border-ouro/35 bg-card-alto px-4 py-4">

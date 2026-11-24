@@ -29,6 +29,8 @@
 
 html {
   background: var(--color-preto);
+  /* puxar a lista para baixo não recarrega a página no meio da chamada */
+  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   color-scheme: dark;
 }
@@ -39,7 +41,7 @@ body {
   color: var(--color-texto);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
 }
 
 :focus-visible {

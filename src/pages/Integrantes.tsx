@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { semAcento, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
+import { ModalIntegrante } from '../components/ModalIntegrante';
+import type { Integrante } from '../lib/tipos';
 import { Icone } from '../components/Icone';
 
 export function Integrantes() {
@@ -10,6 +12,7 @@ export function Integrantes() {
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('');
   const [verInativos, setVerInativos] = useState(false);
+  const [vendo, setVendo] = useState<Integrante | null>(null);
 
   const ramos = useMemo(() => ordenarRamos(integrantes.map((i) => i.ramo)), [integrantes]);
 
@@ -82,9 +85,11 @@ export function Integrantes() {
             const r = corDoRamo(i.ramo);
             const vencida = i.validadeUeb && normalizar(i.validadeUeb) < new Date().toISOString().slice(0, 10);
             return (
-              <li key={i.id} className="border-b border-line bg-card">
-                <Link to={`/integrantes/${i.id}`} className="flex items-center gap-3 px-4 py-3" style={{ borderLeft: `4px solid ${r.cor}` }}>
+              <li key={i.id} className="flex items-center gap-3 border-b border-line bg-card px-4 py-3" style={{ borderLeft: `4px solid ${r.cor}` }}>
+                <button type="button" onClick={() => setVendo(i)} aria-label={`Ver dados de ${i.nome.trim()}`} className="shrink-0 rounded-full">
                   <Avatar foto={i.foto} nome={i.nome} cor={r.cor} />
+                </button>
+                <Link to={`/integrantes/${i.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium">{i.nome.trim()}</span>
                     <span className="block truncate text-[12.5px] text-muted">
@@ -103,6 +108,8 @@ export function Integrantes() {
           })}
         </ul>
       )}
+
+      {vendo ? <ModalIntegrante integrante={vendo} aoFechar={() => setVendo(null)} /> : null}
     </main>
   );
 }

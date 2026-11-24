@@ -46,6 +46,10 @@ script antigo preso à planilha — assim ele continua existindo como plano B).
 Sempre que mudar o código, use **Gerenciar implantações → editar → Nova versão**.
 Criar uma implantação nova gera outra URL.
 
+Quando o código pedir permissões novas (foi o caso do envio de fotos, que usa o
+Drive), rode a função `autorizar` uma vez pelo editor antes de reimplantar: o
+Google mostra a tela de autorização e, a partir daí, o Web App funciona.
+
 ### 2. Cliente OAuth do Google
 
 Em <https://console.cloud.google.com> → *APIs e serviços* → *Credenciais* →
