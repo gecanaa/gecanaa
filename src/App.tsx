@@ -6,6 +6,8 @@ import { Login } from './pages/Login';
 import { Chamada } from './pages/Chamada';
 import { Integrantes } from './pages/Integrantes';
 import { Ficha } from './pages/Ficha';
+import { Relatorio } from './pages/Relatorio';
+import { Imprimir } from './pages/Imprimir';
 import { Conta } from './pages/Conta';
 
 function Rotas() {
@@ -13,8 +15,9 @@ function Rotas() {
 
   if (!usuario) {
     return carregando ? (
-      <main className="grid min-h-dvh place-items-center bg-ink text-paper">
-        <p className="text-sm text-paper/70">Verificando seu acesso…</p>
+      <main className="grid min-h-dvh place-items-center gap-5 bg-preto text-texto">
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-28 w-28" />
+        <p className="text-sm text-ouro">Verificando seu acesso…</p>
       </main>
     ) : (
       <Login />
@@ -28,6 +31,8 @@ function Rotas() {
           <Route path="/" element={<Chamada />} />
           <Route path="/integrantes" element={<Integrantes />} />
           <Route path="/integrantes/:id" element={<Ficha />} />
+          <Route path="/relatorio" element={<Relatorio />} />
+          <Route path="/imprimir" element={<Imprimir />} />
           <Route path="/conta" element={<Conta />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

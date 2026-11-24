@@ -18,7 +18,7 @@ export function Marca() {
   return (
     <span className="flex items-center gap-2.5">
       <Brasao tamanho={34} titulo="Grupo Escoteiro Canaã 52" />
-      <span className="font-display text-[15px] leading-none font-[600] tracking-tight text-paper">
+      <span className="font-display text-[15px] leading-none font-[600] tracking-tight text-texto">
         Canaã 52
         <span className="ml-1.5 font-sans text-[11px] font-medium text-ouro">DF</span>
       </span>

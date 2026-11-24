@@ -103,7 +103,7 @@ export function Ficha() {
       {erro ? <Erro mensagem={erro} /> : null}
 
       {/* O que se procura com pressa em atividade vem primeiro. */}
-      <section className="mx-4 rounded-xl bg-ink px-4 py-4 text-paper">
+      <section className="mx-4 rounded-xl border border-ouro/35 bg-card-alto px-4 py-4">
         <h2 className="font-display text-[15px] font-[700]">Em caso de emergência</h2>
         <dl className="mt-3 space-y-2.5 text-[14px]">
           <Par rotulo="Responsável" valor={dados.contatoEmergencia} escuro />
@@ -181,7 +181,7 @@ export function Ficha() {
         </div>
       )}
 
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-8 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
+      <div className="nao-imprime sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-8 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
         {editando ? (
           <div className="flex gap-3">
             <button type="button" onClick={cancelar} className="rounded-full px-5 py-2.5 text-[15px] font-semibold text-muted">
@@ -191,15 +191,23 @@ export function Ficha() {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="ml-auto rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-ink disabled:opacity-60"
+              className="ml-auto rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60"
             >
               {salvando ? 'Salvando' : 'Salvar ficha'}
             </button>
           </div>
         ) : (
-          <button type="button" onClick={() => setEditando(true)} className="w-full rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-ink">
-            Editar ficha
-          </button>
+          <div className="flex gap-3">
+            <Link
+              to={`/imprimir?id=${dados.id}`}
+              className="flex items-center gap-2 rounded-full border border-line px-4 py-2.5 text-[14px] font-semibold"
+            >
+              <Icone nome="imprimir" className="h-4.5 w-4.5" /> PDF
+            </Link>
+            <button type="button" onClick={() => setEditando(true)} className="flex-1 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto">
+              Editar ficha
+            </button>
+          </div>
         )}
       </div>
     </main>
@@ -220,8 +228,8 @@ function Par({ rotulo, valor, escuro, destaque, link }: { rotulo: string; valor?
   const vazio = !valor?.trim();
   return (
     <div className="flex items-baseline gap-3">
-      <dt className={`w-[46%] shrink-0 text-[12.5px] ${escuro ? 'text-paper/55' : 'text-muted'}`}>{rotulo}</dt>
-      <dd className={`flex-1 ${vazio ? (escuro ? 'text-paper/40' : 'text-muted') : ''} ${destaque ? 'font-semibold text-ouro' : ''}`}>
+      <dt className={`w-[46%] shrink-0 text-[12.5px] ${escuro ? 'text-texto/55' : 'text-muted'}`}>{rotulo}</dt>
+      <dd className={`flex-1 ${vazio ? (escuro ? 'text-texto/40' : 'text-muted') : ''} ${destaque ? 'font-semibold text-ouro' : ''}`}>
         {link && !vazio ? <a href={link} className="underline">{conteudo}</a> : conteudo}
       </dd>
     </div>

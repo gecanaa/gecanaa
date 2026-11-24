@@ -11,7 +11,7 @@ export function Login() {
   }, [montarBotao]);
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-ink px-6 py-12 text-paper">
+    <main className="grid min-h-dvh place-items-center bg-preto px-6 py-12 text-texto">
       <div className="w-full max-w-sm">
         <Brasao tamanho={116} />
         <h1 className="mt-7 font-display text-[2.6rem] leading-[1.05] font-[800] tracking-[-0.02em]">
@@ -19,12 +19,12 @@ export function Login() {
           <br />
           Canaã 52/DF
         </h1>
-        <p className="mt-4 max-w-[34ch] text-[15px] leading-relaxed text-paper/65">
+        <p className="mt-4 max-w-[34ch] text-[15px] leading-relaxed text-texto/65">
           Chamada, fichas dos integrantes e progressão do grupo. O acesso é dos chefes cadastrados.
         </p>
 
         <div className="mt-9 min-h-[44px]" ref={caixa} />
-        {carregando ? <p className="mt-4 text-sm text-paper/60">Verificando seu acesso…</p> : null}
+        {carregando ? <p className="mt-4 text-sm text-texto/60">Verificando seu acesso…</p> : null}
         {erro ? (
           <p className="mt-5 border-l-4 border-ouro bg-paper/10 px-3.5 py-3 text-sm leading-relaxed" role="alert">
             {erro}

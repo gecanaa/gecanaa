@@ -168,8 +168,8 @@ export function Chamada() {
                 className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold"
                 style={
                   ativo
-                    ? { background: r.cor, color: '#fff' }
-                    : { background: 'transparent', color: 'var(--color-ink)', boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
+                    ? { background: r.cor, color: 'var(--color-preto)' }
+                    : { background: 'transparent', color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
                 }
               >
                 {nome}
@@ -200,7 +200,7 @@ export function Chamada() {
         <>
           <div className="flex items-center justify-between px-4 pt-5 pb-2">
             <p className="text-[13px] text-muted">Toque na linha para alternar presente, falta e justificada.</p>
-            <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-ouro-escuro underline">
+            <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-ouro underline">
               Todos presentes
             </button>
           </div>
@@ -217,7 +217,7 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
-          {aviso ? <p className="pb-2 text-[13px] font-medium text-ouro-escuro" role="status">{aviso}</p> : null}
+          {aviso ? <p className="pb-2 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
           <div className="flex items-center gap-3">
             <p className="font-display text-[15px] font-[600]">
               {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.marcados}/{lista.length} marcados</span>
@@ -226,7 +226,7 @@ export function Chamada() {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-ink disabled:opacity-60"
+              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60"
             >
               <Icone nome="salvar" className="h-4.5 w-4.5" />
               {salvando ? 'Salvando' : 'Salvar chamada'}
@@ -259,7 +259,7 @@ function LinhaChamada({
         onClick={onToque}
         aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', sem marcação'}`}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 10%, white)` } : { background: 'white' }}
+        style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 18%, var(--color-card))` } : { background: 'var(--color-card)' }}
       >
         <Avatar foto={integrante.foto} nome={integrante.nome} cor={r.cor} />
         <span className="min-w-0 flex-1">
@@ -270,7 +270,7 @@ function LinhaChamada({
         </span>
         <span
           aria-hidden="true"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-[17px] font-[800] text-white"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-[17px] font-[800] text-preto"
           style={{ background: aparencia?.cor ?? 'transparent', boxShadow: aparencia ? 'none' : 'inset 0 0 0 1.5px var(--color-line)' }}
         >
           {aparencia?.letra ?? ''}
@@ -278,13 +278,13 @@ function LinhaChamada({
       </button>
 
       {marca?.status === 'Falta justificada' ? (
-        <label className="block bg-[color-mix(in_srgb,var(--color-justificada)_8%,white)] px-4 pb-3">
+        <label className="block bg-[color-mix(in_srgb,var(--color-justificada)_14%,var(--color-card))] px-4 pb-3">
           <span className="text-[12px] font-medium text-muted">Motivo da justificativa</span>
           <input
             value={marca.justificativa}
             onChange={(e) => onJustificar(e.target.value)}
             placeholder="Consulta médica, viagem…"
-            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-lg border border-line bg-card-alto px-3 py-2 text-[14px]"
           />
         </label>
       ) : null}

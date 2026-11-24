@@ -5,6 +5,8 @@ const CAMINHOS = {
   busca: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13Zm4.8.3 4 4',
   voltar: 'M15 5l-7 7 7 7',
   salvar: 'M5 12.5l5 5L19 7',
+  relatorio: 'M5 20V9.5M12 20V4.5M19 20v-7M3.5 20h17',
+  imprimir: 'M7 9V4h10v5M7 17H5.5A1.5 1.5 0 0 1 4 15.5v-4A1.5 1.5 0 0 1 5.5 10h13a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5H17M7 14h10v6H7z',
 } as const;
 
 export function Icone({ nome, className = 'h-6 w-6' }: { nome: keyof typeof CAMINHOS; className?: string }) {

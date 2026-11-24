@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+const LOGO = `${import.meta.env.BASE_URL}logo.png`;
+
 export function Carregando({ texto = 'Carregando' }: { texto?: string }) {
   return (
     <p className="px-5 py-10 text-center text-sm text-muted" role="status">
@@ -12,7 +14,7 @@ export function Carregando({ texto = 'Carregando' }: { texto?: string }) {
 export function Erro({ mensagem, acao }: { mensagem: string; acao?: ReactNode }) {
   return (
     <div className="mx-4 my-6 rounded-xl border-l-4 border-falta bg-card px-4 py-3.5" role="alert">
-      <p className="text-sm leading-relaxed text-ink">{mensagem}</p>
+      <p className="text-sm leading-relaxed text-texto">{mensagem}</p>
       {acao ? <div className="mt-3">{acao}</div> : null}
     </div>
   );
@@ -21,6 +23,7 @@ export function Erro({ mensagem, acao }: { mensagem: string; acao?: ReactNode })
 export function Vazio({ titulo, convite }: { titulo: string; convite: string }) {
   return (
     <div className="px-8 py-14 text-center">
+      <img src={LOGO} alt="" aria-hidden="true" className="mx-auto mb-5 h-28 w-28 opacity-[0.14]" />
       <p className="font-display text-lg font-[600]">{titulo}</p>
       <p className="mx-auto mt-1.5 max-w-[32ch] text-sm leading-relaxed text-muted">{convite}</p>
     </div>
@@ -42,7 +45,7 @@ export function Avatar({ foto, nome, cor, tamanho = 44 }: { foto?: string; nome:
   ) : (
     <span
       aria-hidden="true"
-      className="grid shrink-0 place-items-center rounded-full font-display text-[13px] font-[600] text-white"
+      className="grid shrink-0 place-items-center rounded-full font-display text-[13px] font-[600] text-preto"
       style={{ width: tamanho, height: tamanho, background: cor }}
     >
       {iniciais}

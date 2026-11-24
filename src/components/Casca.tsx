@@ -5,13 +5,14 @@ import { Icone } from './Icone';
 const ABAS = [
   { para: '/', rotulo: 'Chamada', icone: 'chamada' },
   { para: '/integrantes', rotulo: 'Integrantes', icone: 'pessoas' },
+  { para: '/relatorio', rotulo: 'Relatório', icone: 'relatorio' },
   { para: '/conta', rotulo: 'Conta', icone: 'conta' },
 ] as const;
 
 export function Casca() {
   return (
     <div className="min-h-dvh bg-paper pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-20 border-b-2 border-ouro bg-ink px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <Marca />
       </header>
 
@@ -19,7 +20,8 @@ export function Casca() {
 
       <nav
         aria-label="Seções do sistema"
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-line bg-card pb-[env(safe-area-inset-bottom)]"
+        data-nav
+        className="nao-imprime fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-card pb-[env(safe-area-inset-bottom)]"
       >
         {ABAS.map((aba) => (
           <NavLink
@@ -29,7 +31,7 @@ export function Casca() {
             className={({ isActive }) =>
               [
                 'flex flex-col items-center gap-1 border-t-2 py-2.5 text-[11px] font-medium',
-                isActive ? 'border-ouro text-ink' : 'border-transparent text-muted',
+                isActive ? 'border-ouro text-texto' : 'border-transparent text-muted',
               ].join(' ')
             }
           >

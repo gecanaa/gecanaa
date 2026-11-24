@@ -31,7 +31,7 @@ export function Integrantes() {
       <div className="sticky top-[52px] z-10 border-b border-line bg-card px-4 py-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-xl font-[600] tracking-tight">Integrantes</h1>
-          <Link to="/integrantes/novo" className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-ink">
+          <Link to="/integrantes/novo" className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto">
             Cadastrar
           </Link>
         </div>
@@ -47,7 +47,7 @@ export function Integrantes() {
         </label>
 
         <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-          <Chip ativo={!filtro} cor="var(--color-ouro-escuro)" onClick={() => setFiltro('')}>
+          <Chip ativo={!filtro} cor="var(--color-ouro)" onClick={() => setFiltro('')}>
             Todos
           </Chip>
           {ramos.map((nome) => (
@@ -63,9 +63,16 @@ export function Integrantes() {
         </label>
       </div>
 
-      <p className="px-4 pt-3 pb-1 text-[13px] text-muted">
-        {lista.length} {lista.length === 1 ? 'integrante' : 'integrantes'}
-      </p>
+      <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
+        <p className="text-[13px] text-muted">
+          {lista.length} {lista.length === 1 ? 'integrante' : 'integrantes'}
+        </p>
+        {lista.length ? (
+          <Link to={`/imprimir${filtro ? `?ramo=${encodeURIComponent(filtro)}` : ''}`} className="shrink-0 text-[13px] font-semibold text-ouro underline">
+            Fichas em PDF
+          </Link>
+        ) : null}
+      </div>
 
       {lista.length === 0 ? (
         <Vazio titulo="Nada encontrado" convite="Mude a busca ou o ramo, ou cadastre um novo integrante." />
@@ -86,7 +93,7 @@ export function Integrantes() {
                     </span>
                   </span>
                   {vencida ? (
-                    <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--color-falta)_12%,white)] px-2.5 py-1 text-[11px] font-semibold text-falta">
+                    <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--color-falta)_22%,var(--color-card))] px-2.5 py-1 text-[11px] font-semibold text-falta">
                       UEB vencido
                     </span>
                   ) : null}
@@ -107,7 +114,7 @@ function Chip({ ativo, cor, onClick, children }: { ativo: boolean; cor: string; 
       onClick={onClick}
       aria-pressed={ativo}
       className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold"
-      style={ativo ? { background: cor, color: '#fff' } : { color: 'var(--color-ink)', boxShadow: `inset 0 0 0 1.5px ${cor}` }}
+      style={ativo ? { background: cor, color: 'var(--color-preto)' } : { color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${cor}` }}
     >
       {children}
     </button>
