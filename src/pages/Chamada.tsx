@@ -200,7 +200,7 @@ export function Chamada() {
         <>
           <div className="flex items-center justify-between px-4 pt-5 pb-2">
             <p className="text-[13px] text-muted">Toque na linha para alternar presente, falta e justificada.</p>
-            <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-escoteiro underline">
+            <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-ouro-escuro underline">
               Todos presentes
             </button>
           </div>
@@ -217,7 +217,7 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-3 backdrop-blur">
-          {aviso ? <p className="pb-2 text-[13px] font-medium text-escoteiro" role="status">{aviso}</p> : null}
+          {aviso ? <p className="pb-2 text-[13px] font-medium text-ouro-escuro" role="status">{aviso}</p> : null}
           <div className="flex items-center gap-3">
             <p className="font-display text-[15px] font-[600]">
               {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.marcados}/{lista.length} marcados</span>
@@ -226,7 +226,7 @@ export function Chamada() {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="ml-auto flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[15px] font-semibold text-paper disabled:opacity-60"
+              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-ink disabled:opacity-60"
             >
               <Icone nome="salvar" className="h-4.5 w-4.5" />
               {salvando ? 'Salvando' : 'Salvar chamada'}

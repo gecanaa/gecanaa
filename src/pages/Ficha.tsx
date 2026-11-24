@@ -191,13 +191,13 @@ export function Ficha() {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="ml-auto rounded-full bg-ink px-5 py-2.5 text-[15px] font-semibold text-paper disabled:opacity-60"
+              className="ml-auto rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-ink disabled:opacity-60"
             >
               {salvando ? 'Salvando' : 'Salvar ficha'}
             </button>
           </div>
         ) : (
-          <button type="button" onClick={() => setEditando(true)} className="w-full rounded-full bg-ink py-2.5 text-[15px] font-semibold text-paper">
+          <button type="button" onClick={() => setEditando(true)} className="w-full rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-ink">
             Editar ficha
           </button>
         )}
@@ -221,7 +221,7 @@ function Par({ rotulo, valor, escuro, destaque, link }: { rotulo: string; valor?
   return (
     <div className="flex items-baseline gap-3">
       <dt className={`w-[46%] shrink-0 text-[12.5px] ${escuro ? 'text-paper/55' : 'text-muted'}`}>{rotulo}</dt>
-      <dd className={`flex-1 ${vazio ? (escuro ? 'text-paper/40' : 'text-muted') : ''} ${destaque ? 'font-semibold text-lobinho' : ''}`}>
+      <dd className={`flex-1 ${vazio ? (escuro ? 'text-paper/40' : 'text-muted') : ''} ${destaque ? 'font-semibold text-ouro' : ''}`}>
         {link && !vazio ? <a href={link} className="underline">{conteudo}</a> : conteudo}
       </dd>
     </div>

@@ -53,7 +53,7 @@ export function Conta() {
         <p className="mt-1.5 text-[14px] text-muted">
           {ativos} integrantes ativos de {integrantes.length} fichas.
         </p>
-        <button type="button" onClick={() => void recarregar()} className="mt-3 text-[14px] font-semibold text-escoteiro underline">
+        <button type="button" onClick={() => void recarregar()} className="mt-3 text-[14px] font-semibold text-ouro-escuro underline">
           Recarregar da planilha
         </button>
       </section>
@@ -69,7 +69,7 @@ export function Conta() {
             type="button"
             onClick={() => void rodar()}
             disabled={rodando}
-            className="mt-3 rounded-full bg-ink px-5 py-2.5 text-[14px] font-semibold text-paper disabled:opacity-60"
+            className="mt-3 rounded-full bg-ouro px-5 py-2.5 text-[14px] font-semibold text-ink disabled:opacity-60"
           >
             {rodando ? 'Conferindo' : 'Conferir agora'}
           </button>

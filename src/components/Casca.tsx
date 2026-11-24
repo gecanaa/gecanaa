@@ -11,7 +11,7 @@ const ABAS = [
 export function Casca() {
   return (
     <div className="min-h-dvh bg-paper pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-20 bg-ink px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-20 border-b-2 border-ouro bg-ink px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <Marca />
       </header>
 
@@ -28,8 +28,8 @@ export function Casca() {
             end={aba.para === '/'}
             className={({ isActive }) =>
               [
-                'flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium',
-                isActive ? 'text-ink' : 'text-muted',
+                'flex flex-col items-center gap-1 border-t-2 py-2.5 text-[11px] font-medium',
+                isActive ? 'border-ouro text-ink' : 'border-transparent text-muted',
               ].join(' ')
             }
           >

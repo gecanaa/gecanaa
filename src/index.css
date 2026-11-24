@@ -4,12 +4,15 @@
   --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque", "Archivo", sans-serif;
 
-  --color-ink: #11201c;
-  --color-ink-soft: #2c3a35;
-  --color-paper: #fafaf8;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #242420;
+  --color-paper: #faf8f4;
   --color-card: #ffffff;
-  --color-line: #dbdcd4;
-  --color-muted: #5c6660;
+  --color-line: #e0dad0;
+  --color-muted: #60594f;
+
+  --color-ouro: #d2ac67;
+  --color-ouro-escuro: #8c6a2c;
 
   --color-lobinho: #e8a00c;
   --color-escoteiro: #0f7a3d;

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../lib/auth';
-import { FlorDeLis } from '../components/Marca';
+import { Brasao } from '../components/Marca';
 
 export function Login() {
   const { montarBotao, erro, carregando } = useAuth();
@@ -13,7 +13,7 @@ export function Login() {
   return (
     <main className="grid min-h-dvh place-items-center bg-ink px-6 py-12 text-paper">
       <div className="w-full max-w-sm">
-        <FlorDeLis className="h-16 w-16 text-paper/90" titulo="" />
+        <Brasao tamanho={116} />
         <h1 className="mt-7 font-display text-[2.6rem] leading-[1.05] font-[800] tracking-[-0.02em]">
           Grupo Escoteiro
           <br />
@@ -26,7 +26,7 @@ export function Login() {
         <div className="mt-9 min-h-[44px]" ref={caixa} />
         {carregando ? <p className="mt-4 text-sm text-paper/60">Verificando seu acesso…</p> : null}
         {erro ? (
-          <p className="mt-5 border-l-4 border-lobinho bg-paper/10 px-3.5 py-3 text-sm leading-relaxed" role="alert">
+          <p className="mt-5 border-l-4 border-ouro bg-paper/10 px-3.5 py-3 text-sm leading-relaxed" role="alert">
             {erro}
           </p>
         ) : null}

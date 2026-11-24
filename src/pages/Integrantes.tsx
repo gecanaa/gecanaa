@@ -31,7 +31,7 @@ export function Integrantes() {
       <div className="sticky top-[52px] z-10 border-b border-line bg-card px-4 py-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-xl font-[600] tracking-tight">Integrantes</h1>
-          <Link to="/integrantes/novo" className="rounded-full bg-ink px-4 py-2 text-[14px] font-semibold text-paper">
+          <Link to="/integrantes/novo" className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-ink">
             Cadastrar
           </Link>
         </div>
@@ -47,7 +47,7 @@ export function Integrantes() {
         </label>
 
         <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-          <Chip ativo={!filtro} cor="var(--color-ink)" onClick={() => setFiltro('')}>
+          <Chip ativo={!filtro} cor="var(--color-ouro-escuro)" onClick={() => setFiltro('')}>
             Todos
           </Chip>
           {ramos.map((nome) => (
