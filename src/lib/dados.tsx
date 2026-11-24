@@ -36,11 +36,23 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     setErro(null);
     try {
       // Uma chamada só: quem é o chefe, os integrantes e a configuração.
-      const r = await api<{ usuario: Usuario; integrantes: Integrante[]; config: Config }>('inicio');
+      // Em um Apps Script ainda não atualizado, cai para as chamadas antigas.
+      let r: { usuario?: Usuario; integrantes: Integrante[]; config: Config };
+      try {
+        r = await api<{ usuario: Usuario; integrantes: Integrante[]; config: Config }>('inicio');
+      } catch (e) {
+        if (!(e instanceof ErroApi) || !/Ação desconhecida/i.test(e.message)) throw e;
+        const [integrantesAntigo, configAntiga] = await Promise.all([
+          api<Integrante[]>('integrantes.listar'),
+          api<Config>('config.ler').catch(() => ({ justificativaAtiva: false })),
+        ]);
+        r = { integrantes: integrantesAntigo, config: configAntiga };
+      }
+
       const lista = [...r.integrantes].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       setIntegrantes(lista);
       setConfig(r.config);
-      atualizarUsuario(r.usuario);
+      if (r.usuario) atualizarUsuario(r.usuario);
       gravar(CACHE_INTEGRANTES, lista);
       gravar(CACHE_CONFIG, r.config);
       setSemRede(false);
