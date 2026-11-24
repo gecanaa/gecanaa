@@ -7,19 +7,20 @@ import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
 
-const CICLO: StatusPresenca[] = ['Presente', 'Falta', 'Falta justificada'];
-
-const APARENCIA: Record<StatusPresenca, { letra: string; cor: string; rotulo: string }> = {
+/**
+ * Quem está marcado é presença; linha em branco conta como falta na hora de
+ * salvar. A justificativa só entra no ciclo se o grupo tiver ativado.
+ */
+const APARENCIA: Record<'Presente' | 'Falta justificada', { letra: string; cor: string; rotulo: string }> = {
   Presente: { letra: 'P', cor: 'var(--color-presente)', rotulo: 'presente' },
-  Falta: { letra: 'F', cor: 'var(--color-falta)', rotulo: 'faltou' },
   'Falta justificada': { letra: 'J', cor: 'var(--color-justificada)', rotulo: 'falta justificada' },
 };
 
-type Marca = { status: StatusPresenca; justificativa: string };
+type Marca = { status: 'Presente' | 'Falta justificada'; justificativa: string };
 
 export function Chamada() {
   const api = useApi();
-  const { integrantes, carregando: carregandoIntegrantes, erro: erroIntegrantes } = useDados();
+  const { integrantes, config, carregando: carregandoIntegrantes, erro: erroIntegrantes } = useDados();
 
   const [data, setData] = useState(hojeISO());
   const [ramoAtual, setRamoAtual] = useState(() => localStorage.getItem('sge:ramo') ?? '');
@@ -64,11 +65,11 @@ export function Chamada() {
           const alvo =
             lista.find((i) => i.id && i.id === r.idIntegrante) ??
             lista.find((i) => i.nome.trim().toLowerCase() === String(r.nome).trim().toLowerCase());
-          if (alvo) {
-            iniciais[alvo.id] = {
-              status: (CICLO.find((s) => s === r.status) ?? 'Presente') as StatusPresenca,
-              justificativa: r.justificativa ?? '',
-            };
+          const status = String(r.status ?? '');
+          if (alvo && status.toLowerCase().indexOf('falta') !== 0) {
+            iniciais[alvo.id] = { status: 'Presente', justificativa: '' };
+          } else if (alvo && status.toLowerCase().indexOf('justific') >= 0) {
+            iniciais[alvo.id] = { status: 'Falta justificada', justificativa: r.justificativa ?? '' };
           }
         });
         setMarcas(iniciais);
@@ -88,38 +89,39 @@ export function Chamada() {
     setAviso(null);
     setMarcas((atual) => {
       const agora = atual[id];
-      const proximo = agora ? CICLO[(CICLO.indexOf(agora.status) + 1) % CICLO.length] : 'Presente';
-      return { ...atual, [id]: { status: proximo, justificativa: agora?.justificativa ?? '' } };
+      const proximas = { ...atual };
+      if (!agora) {
+        proximas[id] = { status: 'Presente', justificativa: '' };
+      } else if (agora.status === 'Presente' && config.justificativaAtiva) {
+        proximas[id] = { status: 'Falta justificada', justificativa: agora.justificativa };
+      } else {
+        delete proximas[id];
+      }
+      return proximas;
     });
   };
 
   const todosPresentes = () => {
     setAviso(null);
-    setMarcas(Object.fromEntries(lista.map((i) => [i.id, { status: 'Presente' as StatusPresenca, justificativa: '' }])));
+    setMarcas(Object.fromEntries(lista.map((i) => [i.id, { status: 'Presente', justificativa: '' } as Marca])));
   };
 
   const contagem = useMemo(() => {
     const valores = lista.map((i) => marcas[i.id]?.status);
-    return {
-      presentes: valores.filter((s) => s === 'Presente').length,
-      marcados: valores.filter(Boolean).length,
-    };
+    const presentes = valores.filter((s) => s === 'Presente').length;
+    return { presentes, faltas: lista.length - presentes };
   }, [lista, marcas]);
 
   const salvar = async () => {
-    const itens = lista
-      .filter((i) => marcas[i.id])
-      .map((i) => ({
+    const itens = lista.map((i) => {
+      const marca = marcas[i.id];
+      return {
         idIntegrante: i.id,
         nome: i.nome.trim(),
-        status: marcas[i.id].status,
-        justificativa: marcas[i.id].status === 'Falta justificada' ? marcas[i.id].justificativa : '',
-      }));
-
-    if (!itens.length) {
-      setAviso('Marque ao menos um integrante antes de salvar.');
-      return;
-    }
+        status: (marca?.status ?? 'Falta') as StatusPresenca,
+        justificativa: marca?.status === 'Falta justificada' ? marca.justificativa : '',
+      };
+    });
 
     setSalvando(true);
     setErro(null);
@@ -199,7 +201,11 @@ export function Chamada() {
       {lista.length > 0 ? (
         <>
           <div className="flex items-center justify-between px-4 pt-5 pb-2">
-            <p className="text-[13px] text-muted">Toque na linha para alternar presente, falta e justificada.</p>
+            <p className="text-[13px] text-muted">
+              {config.justificativaAtiva
+                ? 'Toque para marcar presença, de novo para justificar a falta. Em branco conta como falta.'
+                : 'Toque para marcar presença. Quem ficar em branco conta como falta.'}
+            </p>
             <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-ouro underline">
               Todos presentes
             </button>
@@ -220,7 +226,7 @@ export function Chamada() {
           {aviso ? <p className="pb-2 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
           <div className="flex items-center gap-3">
             <p className="font-display text-[15px] font-[600]">
-              {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.marcados}/{lista.length} marcados</span>
+              {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.faltas} faltas</span>
             </p>
             <button
               type="button"
@@ -257,7 +263,7 @@ function LinhaChamada({
       <button
         type="button"
         onClick={onToque}
-        aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', sem marcação'}`}
+        aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', falta'}`}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
         style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 18%, var(--color-card))` } : { background: 'var(--color-card)' }}
       >

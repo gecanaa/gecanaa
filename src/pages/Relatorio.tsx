@@ -3,6 +3,7 @@ import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
+import { useZoomLiberado } from '../lib/zoom';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 
 type Pessoa = {
@@ -25,6 +26,7 @@ function mesesAtras(n: number): string {
 }
 
 export function Relatorio() {
+  useZoomLiberado();
   const api = useApi();
   const { integrantes } = useDados();
 

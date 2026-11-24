@@ -5,11 +5,18 @@ Sistema do Grupo Escoteiro Canaã 52/DF, reescrito do zero. O site é estático
 publicado como Web App. **A planilha continua sendo o banco de dados** — nada
 foi migrado para outro lugar.
 
-Nesta primeira versão: **chamada** e **fichas dos integrantes**. Financeiro,
-progressão, almoxarifado, lojinha e lanches entram depois, sobre a mesma base.
+Hoje o sistema tem **chamada**, **fichas dos integrantes**, **relatório de
+presença** e **fichas em PDF**. Financeiro, progressão, almoxarifado, lojinha e
+lanches entram depois, sobre a mesma base.
 
-- Login com conta Google, liberado pela aba `Usuarios` da planilha.
-- O app é instalável no celular (PWA).
+- Login com conta Google, liberado pela aba `Usuarios` da planilha. Depois de
+  entrar, o chefe fica 30 dias sem precisar entrar de novo.
+- O app é instalável no celular (PWA), com o brasão do grupo como ícone.
+- Na chamada, quem é tocado fica presente e quem fica em branco conta como
+  falta. A justificativa de falta é opcional e liga em *Conta → Chamada*
+  (só administrador).
+- O zoom fica travado no app, para um toque na chamada nunca virar zoom sem
+  querer, e é liberado no relatório e na tela de impressão.
 - Toda gravação é registrada na aba `Logs`.
 
 ## Como ligar tudo (uma vez)
@@ -92,6 +99,11 @@ npm run dev
 - Em *Conta → Conferência dos dados* (só admin) há um relatório que aponta nomes
   repetidos, chamadas duplicadas, registro UEB vencido e fichas sem ramo. Ele só
   lê a planilha.
+
+As preferências do grupo (hoje só a justificativa de falta) ficam nas
+propriedades do script, não na planilha. A sessão longa é assinada com a
+propriedade `SESSAO_SEGREDO`, criada sozinha no primeiro login — apagá-la
+desconecta todo mundo, o que serve de botão de emergência.
 
 Dois problemas já conhecidos nos dados de hoje, para corrigir na planilha:
 a ficha de *Alice Morais de Lima* tem `Alergia = Ativo`, e a aba `Presencas` tem

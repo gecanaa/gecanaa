@@ -3,7 +3,7 @@ import { chamar, ErroApi } from './api';
 import type { Usuario } from './tipos';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-const CHAVE_TOKEN = 'sge:token';
+const CHAVE_TOKEN = 'sge:sessao';
 
 type Contexto = {
   usuario: Usuario | null;
@@ -32,10 +32,13 @@ declare global {
   }
 }
 
+/** Vale tanto para o token do Google (exp em segundos) quanto para a sessão deste sistema (exp em milissegundos). */
 function expirado(token: string): boolean {
   try {
-    const { exp } = JSON.parse(atob(token.split('.')[1]));
-    return Number(exp) * 1000 - 30_000 < Date.now();
+    const corpo = token.split('.')[1];
+    const { exp } = JSON.parse(atob(corpo.replace(/-/g, '+').replace(/_/g, '/')));
+    const quando = token.startsWith('s1.') ? Number(exp) : Number(exp) * 1000;
+    return quando - 30_000 < Date.now();
   } catch {
     return true;
   }
@@ -53,11 +56,21 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
     setCarregando(true);
     try {
       const u = await chamar<Usuario>('me', {}, credencial);
-      sessionStorage.setItem(CHAVE_TOKEN, credencial);
-      setToken(credencial);
+      let guardar = credencial;
+      if (!credencial.startsWith('s1.')) {
+        // Troca o login do Google por uma sessão longa, para não pedir acesso toda vez.
+        try {
+          const s = await chamar<{ token: string }>('sessao.criar', {}, credencial);
+          guardar = s.token;
+        } catch {
+          guardar = credencial;
+        }
+      }
+      localStorage.setItem(CHAVE_TOKEN, guardar);
+      setToken(guardar);
       setUsuario(u);
     } catch (e) {
-      sessionStorage.removeItem(CHAVE_TOKEN);
+      localStorage.removeItem(CHAVE_TOKEN);
       setToken(null);
       setUsuario(null);
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível entrar.');
@@ -70,11 +83,12 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelado = false;
 
-    const guardado = sessionStorage.getItem(CHAVE_TOKEN);
+    const guardado = localStorage.getItem(CHAVE_TOKEN);
     if (guardado && !expirado(guardado)) {
       void aceitar(guardado);
     } else {
-      sessionStorage.removeItem(CHAVE_TOKEN);
+      localStorage.removeItem(CHAVE_TOKEN);
+      sessionStorage.removeItem('sge:token');
       setCarregando(false);
     }
 
@@ -120,7 +134,7 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
 
   const sair = useCallback(() => {
     window.google?.accounts.id.disableAutoSelect();
-    sessionStorage.removeItem(CHAVE_TOKEN);
+    localStorage.removeItem(CHAVE_TOKEN);
     setToken(null);
     setUsuario(null);
     setErro(null);

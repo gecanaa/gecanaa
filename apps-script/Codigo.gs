@@ -52,6 +52,9 @@ function despachar_(action, payload, token) {
 
   switch (action) {
     case 'me':                     return usuario;
+    case 'sessao.criar':           return criarSessao_(usuario);
+    case 'config.ler':             return lerConfig_();
+    case 'config.salvar':          return salvarConfig_(usuario, payload);
     case 'integrantes.listar':     return listarIntegrantes_();
     case 'integrantes.salvar':     return salvarIntegrante_(usuario, payload);
     case 'presencas.chamada':      return lerChamada_(payload);
@@ -64,9 +67,20 @@ function despachar_(action, payload, token) {
 
 // ---------------------------------------------------------------------- acesso
 
-/** Confere o token do Google e devolve o chefe correspondente na aba Usuarios. */
+/**
+ * Aceita dois tipos de credencial: o token de login do Google (válido por
+ * uma hora) e a sessão emitida por este script (válida por 30 dias, para o
+ * chefe não precisar entrar de novo a cada vez que abre o app).
+ */
 function autenticar_(token) {
   if (!token) throw new Error('SEM_LOGIN');
+
+  if (String(token).indexOf('s1.') === 0) {
+    const email = conferirSessao_(token);
+    const chefe = acharUsuario_(email);
+    if (!chefe) throw new Error('NAO_AUTORIZADO');
+    return Object.assign({}, chefe, { emailGoogle: email });
+  }
 
   const props = PropertiesService.getScriptProperties();
   const clientId = props.getProperty('GOOGLE_CLIENT_ID');
@@ -95,6 +109,65 @@ function autenticar_(token) {
   const chefe = acharUsuario_(conta.email);
   if (!chefe) throw new Error('NAO_AUTORIZADO');
   return Object.assign({}, chefe, { foto: conta.foto, emailGoogle: conta.email });
+}
+
+const DIAS_DE_SESSAO = 30;
+
+function segredoDaSessao_() {
+  const props = PropertiesService.getScriptProperties();
+  let segredo = props.getProperty('SESSAO_SEGREDO');
+  if (!segredo) {
+    segredo = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty('SESSAO_SEGREDO', segredo);
+  }
+  return segredo;
+}
+
+function assinar_(texto) {
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(texto, segredoDaSessao_()));
+}
+
+/** Troca um login do Google por uma sessão longa deste sistema. */
+function criarSessao_(usuario) {
+  const corpo = Utilities.base64EncodeWebSafe(JSON.stringify({
+    email: usuario.emailGoogle || usuario.email,
+    exp: Date.now() + DIAS_DE_SESSAO * 24 * 60 * 60 * 1000,
+  }));
+  return { token: 's1.' + corpo + '.' + assinar_(corpo), dias: DIAS_DE_SESSAO };
+}
+
+function conferirSessao_(token) {
+  const partes = String(token).split('.');
+  if (partes.length !== 3) throw new Error('LOGIN_INVALIDO');
+  if (assinar_(partes[1]) !== partes[2]) throw new Error('LOGIN_INVALIDO');
+  let dados;
+  try {
+    dados = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[1])).getDataAsString());
+  } catch (e) {
+    throw new Error('LOGIN_INVALIDO');
+  }
+  if (!dados.exp || dados.exp < Date.now()) throw new Error('LOGIN_EXPIRADO');
+  return String(dados.email).toLowerCase();
+}
+
+// -------------------------------------------------------------- configuracoes
+
+/** Preferências do grupo, valendo para todos os chefes. */
+function lerConfig_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    justificativaAtiva: props.getProperty('JUSTIFICATIVA_ATIVA') === 'sim',
+  };
+}
+
+function salvarConfig_(usuario, payload) {
+  if (usuario.nivel !== 'admin') throw new Error('Só administradores mudam as configurações.');
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('JUSTIFICATIVA_ATIVA', payload.justificativaAtiva ? 'sim' : 'nao');
+  registrarLog_(usuario, 'Configuração', 'Edição',
+    'Justificativa de falta ' + (payload.justificativaAtiva ? 'ativada' : 'desativada') + '.');
+  return lerConfig_();
 }
 
 function acharUsuario_(email) {

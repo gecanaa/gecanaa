@@ -16,7 +16,7 @@ type Diagnostico = {
 
 export function Conta() {
   const { usuario, sair } = useAuth();
-  const { integrantes, recarregar } = useDados();
+  const { integrantes, config, salvarConfig, recarregar } = useDados();
   const api = useApi();
   const [diag, setDiag] = useState<Diagnostico | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -34,7 +34,20 @@ export function Conta() {
     }
   };
 
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
+
+  const alternarJustificativa = async (ligada: boolean) => {
+    setSalvandoConfig(true);
+    setErro(null);
+    try {
+      await salvarConfig({ justificativaAtiva: ligada });
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a configuração.');
+    } finally {
+      setSalvandoConfig(false);
+    }
+  };
 
   return (
     <main className="px-4 pb-10 pt-5">
@@ -57,6 +70,28 @@ export function Conta() {
           Recarregar da planilha
         </button>
       </section>
+
+      {usuario?.nivel === 'admin' ? (
+        <section className="mt-4 rounded-xl bg-card px-4 py-4">
+          <p className="font-display text-[15px] font-[700]">Chamada</p>
+          <label className="mt-2.5 flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={config.justificativaAtiva}
+              disabled={salvandoConfig}
+              onChange={(e) => void alternarJustificativa(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-ouro)]"
+            />
+            <span className="text-[14px] leading-relaxed">
+              Permitir justificar falta
+              <span className="block text-[13px] text-muted">
+                Com isso ligado, tocar duas vezes na linha marca falta justificada e abre o campo do motivo.
+                Desligado, a chamada é só presença: quem fica em branco conta como falta.
+              </span>
+            </span>
+          </label>
+        </section>
+      ) : null}
 
       {usuario?.nivel === 'admin' ? (
         <section className="mt-4 rounded-xl bg-card px-4 py-4">

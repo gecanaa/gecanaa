@@ -3,8 +3,12 @@ import { useApi } from './auth';
 import { ErroApi } from './api';
 import type { Integrante } from './tipos';
 
+export type Config = { justificativaAtiva: boolean };
+
 type Contexto = {
   integrantes: Integrante[];
+  config: Config;
+  salvarConfig: (c: Config) => Promise<void>;
   carregando: boolean;
   erro: string | null;
   recarregar: () => Promise<void>;
@@ -17,6 +21,7 @@ const Dados = createContext<Contexto | null>(null);
 export function ProvedorDados({ children }: { children: ReactNode }) {
   const api = useApi();
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
+  const [config, setConfig] = useState<Config>({ justificativaAtiva: false });
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -24,9 +29,13 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     setCarregando(true);
     setErro(null);
     try {
-      const lista = await api<Integrante[]>('integrantes.listar');
+      const [lista, c] = await Promise.all([
+        api<Integrante[]>('integrantes.listar'),
+        api<Config>('config.ler').catch(() => ({ justificativaAtiva: false })),
+      ]);
       lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       setIntegrantes(lista);
+      setConfig(c);
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível carregar os integrantes.');
     } finally {
@@ -46,8 +55,17 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const salvarConfig = useCallback(
+    async (nova: Config) => {
+      setConfig(await api<Config>('config.salvar', nova));
+    },
+    [api],
+  );
+
   return (
-    <Dados.Provider value={{ integrantes, carregando, erro, recarregar, aplicar }}>{children}</Dados.Provider>
+    <Dados.Provider value={{ integrantes, config, salvarConfig, carregando, erro, recarregar, aplicar }}>
+      {children}
+    </Dados.Provider>
   );
 }
 

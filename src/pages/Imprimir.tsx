@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDados } from '../lib/dados';
 import { ramo as corDoRamo } from '../lib/ramos';
+import { useZoomLiberado } from '../lib/zoom';
 import { Carregando } from '../components/Estados';
 import type { Integrante } from '../lib/tipos';
 
@@ -12,6 +13,7 @@ const LOGO = `${import.meta.env.BASE_URL}logo.png`;
  * pasta da atividade: o que socorre primeiro vem primeiro.
  */
 export function Imprimir() {
+  useZoomLiberado();
   const [params] = useSearchParams();
   const { integrantes, carregando } = useDados();
   const id = params.get('id');
