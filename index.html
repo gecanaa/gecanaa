@@ -18,6 +18,34 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+      /* Embutido de propósito: a abertura precisa estar certa antes de
+         qualquer folha de estilo externa chegar. */
+      html, body { margin: 0; background: #070707; }
+      #abertura {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.25rem;
+        background: #070707;
+        font-family: system-ui, sans-serif;
+      }
+      #abertura img { width: 128px; height: 128px; }
+      #abertura p {
+        margin: 0;
+        max-width: 24ch;
+        padding: 0 1.5rem;
+        color: #d2ac67;
+        font-size: 1.05rem;
+        line-height: 1.35;
+        text-align: center;
+      }
+      html.montado #abertura { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

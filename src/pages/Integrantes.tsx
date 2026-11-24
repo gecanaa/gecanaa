@@ -28,7 +28,7 @@ export function Integrantes() {
 
   return (
     <main className="pb-8">
-      <div className="sticky top-[52px] z-10 border-b border-line bg-card px-4 py-4">
+      <div className="sticky top-[var(--topo,52px)] z-10 border-b border-line bg-card px-4 py-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-xl font-[600] tracking-tight">Integrantes</h1>
           <Link to="/integrantes/novo" className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto">

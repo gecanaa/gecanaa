@@ -3,6 +3,7 @@ import { useApi, useAuth } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { useDados } from '../lib/dados';
 import { Erro } from '../components/Estados';
+import { avisarMarcou, gravarFeedback, lerFeedback, type Feedback } from '../lib/feedback';
 
 type Diagnostico = {
   integrantes: number;
@@ -35,6 +36,7 @@ export function Conta() {
   };
 
   const [salvandoConfig, setSalvandoConfig] = useState(false);
+  const [sentido, setSentido] = useState<Feedback>(lerFeedback);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
   const alternarJustificativa = async (ligada: boolean) => {
@@ -59,6 +61,30 @@ export function Conta() {
         <p className="mt-1 text-[13px] text-muted">
           Acesso: {usuario?.nivel === 'admin' ? 'administrador' : 'geral'}
         </p>
+      </section>
+
+      <section className="mt-4 rounded-xl bg-card px-4 py-4">
+        <p className="font-display text-[15px] font-[700]">Resposta ao marcar presença</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">Vale só neste aparelho.</p>
+        {([
+          ['vibrar', 'Vibrar'],
+          ['som', 'Apitar'],
+        ] as const).map(([campo, rotulo]) => (
+          <label key={campo} className="mt-2.5 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={sentido[campo]}
+              onChange={(e) => {
+                const nova = { ...sentido, [campo]: e.target.checked };
+                setSentido(nova);
+                gravarFeedback(nova);
+                if (e.target.checked) avisarMarcou(nova);
+              }}
+              className="h-5 w-5 shrink-0 accent-[var(--color-ouro)]"
+            />
+            <span className="text-[14px]">{rotulo}</span>
+          </label>
+        ))}
       </section>
 
       <section className="mt-4 rounded-xl bg-card px-4 py-4">

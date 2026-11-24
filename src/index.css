@@ -56,30 +56,6 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* A abertura fica visível até o React montar. */
-#abertura {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 1.25rem;
-  background: var(--color-preto);
-  z-index: 50;
-}
-#abertura img { width: 128px; height: 128px; }
-#abertura p {
-  margin: 0;
-  max-width: 24ch;
-  padding: 0 1.5rem;
-  color: var(--color-ouro);
-  font-family: var(--font-display), sans-serif;
-  font-size: 1.05rem;
-  line-height: 1.35;
-  text-align: center;
-}
-.montado #abertura { display: none; }
-
 /* Impressão: só o conteúdo, em preto sobre branco. */
 @media print {
   @page { margin: 12mm; }

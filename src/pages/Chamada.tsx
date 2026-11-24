@@ -5,6 +5,7 @@ import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
 import { enfileirar, enviarFila, pendenteDe, pendentes } from '../lib/local';
+import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
 
@@ -32,15 +33,6 @@ export function Chamada() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [naFila, setNaFila] = useState(() => pendentes().length);
-  const [compacto, setCompacto] = useState(false);
-
-  // O topo encolhe ao rolar, mas nunca sai da tela: data e ramo continuam à mão.
-  useEffect(() => {
-    const aoRolar = () => setCompacto(window.scrollY > 36);
-    aoRolar();
-    window.addEventListener('scroll', aoRolar, { passive: true });
-    return () => window.removeEventListener('scroll', aoRolar);
-  }, []);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
   useEffect(() => {
@@ -128,15 +120,19 @@ export function Chamada() {
 
   const alternar = (id: string) => {
     setAviso(null);
+    const sentido = lerFeedback();
     setMarcas((atual) => {
       const agora = atual[id];
       const proximas = { ...atual };
       if (!agora) {
         proximas[id] = { status: 'Presente', justificativa: '' };
+        avisarMarcou(sentido);
       } else if (agora.status === 'Presente' && config.justificativaAtiva) {
         proximas[id] = { status: 'Falta justificada', justificativa: agora.justificativa };
+        avisarMarcou(sentido);
       } else {
         delete proximas[id];
+        avisarDesmarcou(sentido);
       }
       return proximas;
     });
@@ -144,6 +140,7 @@ export function Chamada() {
 
   const todosPresentes = () => {
     setAviso(null);
+    avisarMarcou(lerFeedback());
     setMarcas(Object.fromEntries(lista.map((i) => [i.id, { status: 'Presente', justificativa: '' } as Marca])));
   };
 
@@ -173,12 +170,14 @@ export function Chamada() {
         itens,
       });
       setAviso(`Chamada salva: ${r.presentes} presentes de ${r.gravados}.`);
+      avisarSalvou(lerFeedback());
       setExistente({ data, ramo: ramoAtual, registros: {}, total: r.gravados });
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
         enfileirar({ data, ramo: ramoAtual, itens });
         setNaFila(pendentes().length);
         setAviso('Sem internet agora. A chamada ficou guardada no aparelho e vai sozinha quando a conexão voltar.');
+        avisarSalvou(lerFeedback());
       } else {
         setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a chamada.');
       }
@@ -192,25 +191,23 @@ export function Chamada() {
 
   return (
     <main className="pb-24">
-      <div className={`sticky top-[52px] z-10 border-b border-line bg-card px-4 ${compacto ? 'py-2' : 'py-3.5'}`}>
-        <label className="block">
-          {compacto ? null : (
-            <span className="font-display text-xl font-[600] tracking-tight">Chamada</span>
-          )}
-          <input
-            type="date"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            className={`block w-full rounded-lg border border-line bg-paper px-3 ${
-              compacto ? 'py-1.5 text-[14px]' : 'mt-2 py-2.5 text-[15px]'
-            }`}
-          />
-        </label>
-        {compacto ? null : (
-          <p className="mt-2 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
-        )}
+      {/* Título e data por extenso rolam junto com a lista. */}
+      <div className="px-4 pt-4 pb-3">
+        <h1 className="font-display text-xl font-[600] tracking-tight">Chamada</h1>
+        <p className="mt-1 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
+      </div>
 
-        <div className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 ${compacto ? 'mt-2' : 'mt-3.5'}`}>
+      {/* Esta barra fica. Altura sempre a mesma, para a lista nunca pular. */}
+      <div className="sticky top-[var(--topo,52px)] z-10 border-b border-line bg-card px-4 py-2">
+        <input
+          type="date"
+          aria-label="Data da chamada"
+          value={data}
+          onChange={(e) => setData(e.target.value)}
+          className="block w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-[14px]"
+        />
+
+        <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
           {ramos.map((nome) => {
             const r = corDoRamo(nome);
             const ativo = nome === ramoAtual;
@@ -220,7 +217,7 @@ export function Chamada() {
                 type="button"
                 onClick={() => setRamoAtual(nome)}
                 aria-pressed={ativo}
-                className={`shrink-0 rounded-full font-semibold ${compacto ? 'px-3.5 py-1.5 text-[13px]' : 'px-4 py-2 text-[14px]'}`}
+                className="shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
                 style={
                   ativo
                     ? { background: r.cor, color: 'var(--color-preto)' }

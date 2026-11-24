@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { Marca } from './Marca';
 import { Icone } from './Icone';
@@ -10,9 +11,23 @@ const ABAS = [
 ] as const;
 
 export function Casca() {
+  const topo = useRef<HTMLElement>(null);
+
+  // As barras fixas das telas grudam logo abaixo do cabeçalho, seja qual for
+  // a altura dele no aparelho (a faixa de status varia).
+  useEffect(() => {
+    const no = topo.current;
+    if (!no) return;
+    const medir = () => document.documentElement.style.setProperty('--topo', `${no.offsetHeight}px`);
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(no);
+    return () => observador.disconnect();
+  }, []);
+
   return (
     <div className="min-h-dvh bg-paper pb-[calc(56px+env(safe-area-inset-bottom))]">
-      <header className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-2.5 pt-[calc(0.6rem+env(safe-area-inset-top))]">
+      <header ref={topo} className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-2.5 pt-[calc(0.6rem+env(safe-area-inset-top))]">
         <Marca />
       </header>
 
