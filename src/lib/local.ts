@@ -71,3 +71,46 @@ export async function enviarFila(
   }
   return { enviadas, restantes: pendentes().length };
 }
+
+// ------------------------------------------------- chamada em andamento
+
+/**
+ * O que já foi marcado numa chamada ainda não salva. Fica guardado por dia e
+ * ramo, então sair para ver uma ficha, trocar de aba ou fechar o app sem
+ * querer não apaga o trabalho.
+ */
+export type Rascunho = {
+  marcas: Record<string, { status: string; justificativa: string }>;
+  tocado: boolean;
+};
+
+const chaveRascunho = (data: string, ramo: string) => `sge:rascunho:${data}|${ramo}`;
+
+export function lerRascunho(data: string, ramo: string): Rascunho | null {
+  return ler<Rascunho>(chaveRascunho(data, ramo));
+}
+
+export function gravarRascunho(data: string, ramo: string, rascunho: Rascunho): void {
+  gravar(chaveRascunho(data, ramo), rascunho);
+}
+
+export function apagarRascunho(data: string, ramo: string): void {
+  try {
+    localStorage.removeItem(chaveRascunho(data, ramo));
+  } catch {
+    /* nada a fazer */
+  }
+}
+
+/** Rascunhos de dias antigos não servem mais: sai do aparelho. */
+export function limparRascunhosAntigos(dias = 30): void {
+  const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('sge:rascunho:'))
+      .filter((k) => (k.slice('sge:rascunho:'.length).split('|')[0] ?? '') < limite)
+      .forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* nada a fazer */
+  }
+}

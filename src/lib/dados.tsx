@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useApi, useAuth } from './auth';
 import { ErroApi } from './api';
-import { gravar, ler as lerLocal } from './local';
+import { gravar, ler as lerLocal, limparRascunhosAntigos } from './local';
 import type { Integrante, Usuario } from './tipos';
 
 export type Config = { justificativaAtiva: boolean };
@@ -73,6 +73,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   }, [api, atualizarUsuario, sair]);
 
   useEffect(() => {
+    limparRascunhosAntigos();
     void recarregar();
   }, [recarregar]);
 

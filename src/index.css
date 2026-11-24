@@ -49,6 +49,18 @@ body {
   outline-offset: 2px;
 }
 
+/* A marcação precisa ser vista de relance, então ela dá um pulo curto. */
+@keyframes marcou {
+  0% { transform: scale(0.55); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes acende {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 @keyframes desliza {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }

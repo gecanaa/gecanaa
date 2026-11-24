@@ -5,7 +5,7 @@ import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
 import { ModalIntegrante } from '../components/ModalIntegrante';
-import { enfileirar, enviarFila, pendenteDe, pendentes } from '../lib/local';
+import { apagarRascunho, enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
 import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
@@ -28,6 +28,9 @@ export function Chamada() {
   const [data, setData] = useState(hojeISO());
   const [ramoAtual, setRamoAtual] = useState(() => localStorage.getItem('sge:ramo') ?? '');
   const [marcas, setMarcas] = useState<Record<string, Marca>>({});
+  // "tocado" marca que o chefe já mexeu nesta chamada: a partir daí, o que
+  // chega do servidor não sobrescreve o que está na tela.
+  const [tocado, setTocado] = useState(false);
   const [existente, setExistente] = useState<TipoChamada | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -67,6 +70,20 @@ export function Chamada() {
     [integrantes, ramoAtual],
   );
 
+  // Ao trocar de dia ou ramo, retoma o rascunho guardado no aparelho.
+  useEffect(() => {
+    if (!data || !ramoAtual) return;
+    const guardado = lerRascunho(data, ramoAtual);
+    setMarcas((guardado?.marcas as Record<string, Marca>) ?? {});
+    setTocado(!!guardado?.tocado);
+  }, [data, ramoAtual]);
+
+  // Guarda cada mudança, para sair da tela não apagar o trabalho.
+  useEffect(() => {
+    if (!data || !ramoAtual || !tocado) return;
+    gravarRascunho(data, ramoAtual, { marcas, tocado });
+  }, [data, ramoAtual, marcas, tocado]);
+
   // Busca o que já foi registrado para a data e o ramo escolhidos.
   useEffect(() => {
     if (!data || !ramoAtual) return;
@@ -90,6 +107,10 @@ export function Chamada() {
             iniciais[alvo.id] = { status: 'Falta justificada', justificativa: r.justificativa ?? '' };
           }
         });
+        // Se já houve marcação nesta tela, ela manda: o que chega do
+        // servidor não apaga o que o chefe acabou de tocar.
+        if (lerRascunho(data, ramoAtual)?.tocado) return;
+
         const guardada = pendenteDe(data, ramoAtual);
         if (guardada) {
           const daFila: Record<string, Marca> = {};
@@ -122,6 +143,7 @@ export function Chamada() {
 
   const alternar = (id: string) => {
     setAviso(null);
+    setTocado(true);
     const sentido = lerFeedback();
     setMarcas((atual) => {
       const agora = atual[id];
@@ -142,6 +164,7 @@ export function Chamada() {
 
   const todosPresentes = () => {
     setAviso(null);
+    setTocado(true);
     avisarMarcou(lerFeedback());
     setMarcas(Object.fromEntries(lista.map((i) => [i.id, { status: 'Presente', justificativa: '' } as Marca])));
   };
@@ -173,6 +196,8 @@ export function Chamada() {
       });
       setAviso(`Chamada salva: ${r.presentes} presentes de ${r.gravados}.`);
       avisarSalvou(lerFeedback());
+      apagarRascunho(data, ramoAtual);
+      setTocado(false);
       setExistente({ data, ramo: ramoAtual, registros: {}, total: r.gravados });
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
@@ -180,6 +205,8 @@ export function Chamada() {
         setNaFila(pendentes().length);
         setAviso('Sem internet agora. A chamada ficou guardada no aparelho e vai sozinha quando a conexão voltar.');
         avisarSalvou(lerFeedback());
+        apagarRascunho(data, ramoAtual);
+        setTocado(false);
       } else {
         setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a chamada.');
       }
@@ -328,7 +355,7 @@ function LinhaChamada({
   return (
     <li className="border-b border-line">
       <div
-        className="flex items-center gap-3 px-4 py-3"
+        className="flex items-center gap-3 px-4 py-3 transition-colors duration-200"
         style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 18%, var(--color-card))` } : { background: 'var(--color-card)' }}
       >
         <button type="button" onClick={onAbrir} aria-label={`Ver dados de ${integrante.nome.trim()}`} className="shrink-0 rounded-full">
@@ -348,9 +375,14 @@ function LinhaChamada({
             ) : null}
           </span>
           <span
+            key={aparencia?.letra ?? 'vazio'}
             aria-hidden="true"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-[17px] font-[800] text-preto"
-            style={{ background: aparencia?.cor ?? 'transparent', boxShadow: aparencia ? 'none' : 'inset 0 0 0 1.5px var(--color-line)' }}
+            style={{
+              background: aparencia?.cor ?? 'transparent',
+              boxShadow: aparencia ? 'none' : 'inset 0 0 0 1.5px var(--color-line)',
+              animation: aparencia ? 'marcou 220ms cubic-bezier(.2,.9,.3,1.4)' : 'acende 180ms ease-out',
+            }}
           >
             {aparencia?.letra ?? ''}
           </span>
