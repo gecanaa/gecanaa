@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useApi } from './auth';
+import { useApi, useAuth } from './auth';
 import { ErroApi } from './api';
 import { gravar, ler as lerLocal } from './local';
-import type { Integrante } from './tipos';
+import type { Integrante, Usuario } from './tipos';
 
 export type Config = { justificativaAtiva: boolean };
 
@@ -25,25 +25,24 @@ const Dados = createContext<Contexto | null>(null);
 /** Os integrantes são lidos uma vez e reaproveitados pelas telas. */
 export function ProvedorDados({ children }: { children: ReactNode }) {
   const api = useApi();
+  const { atualizarUsuario, sair } = useAuth();
   const [integrantes, setIntegrantes] = useState<Integrante[]>(() => lerLocal<Integrante[]>(CACHE_INTEGRANTES) ?? []);
   const [config, setConfig] = useState<Config>(() => lerLocal<Config>(CACHE_CONFIG) ?? { justificativaAtiva: false });
   const [semRede, setSemRede] = useState(false);
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(() => !lerLocal<Integrante[]>(CACHE_INTEGRANTES)?.length);
   const [erro, setErro] = useState<string | null>(null);
 
   const recarregar = useCallback(async () => {
-    setCarregando(true);
     setErro(null);
     try {
-      const [lista, c] = await Promise.all([
-        api<Integrante[]>('integrantes.listar'),
-        api<Config>('config.ler').catch(() => ({ justificativaAtiva: false })),
-      ]);
-      lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      // Uma chamada só: quem é o chefe, os integrantes e a configuração.
+      const r = await api<{ usuario: Usuario; integrantes: Integrante[]; config: Config }>('inicio');
+      const lista = [...r.integrantes].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       setIntegrantes(lista);
-      setConfig(c);
+      setConfig(r.config);
+      atualizarUsuario(r.usuario);
       gravar(CACHE_INTEGRANTES, lista);
-      gravar(CACHE_CONFIG, c);
+      gravar(CACHE_CONFIG, r.config);
       setSemRede(false);
     } catch (e) {
       // Sem internet, o app segue com a última cópia baixada.
@@ -51,13 +50,15 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
       if (e instanceof ErroApi && e.codigo === 'SEM_REDE' && guardados?.length) {
         setIntegrantes(guardados);
         setSemRede(true);
+      } else if (e instanceof ErroApi && (e.codigo === 'NAO_AUTORIZADO' || e.codigo === 'LOGIN_EXPIRADO' || e.codigo === 'LOGIN_INVALIDO')) {
+        sair();
       } else {
         setErro(e instanceof ErroApi ? e.message : 'Não foi possível carregar os integrantes.');
       }
     } finally {
       setCarregando(false);
     }
-  }, [api]);
+  }, [api, atualizarUsuario, sair]);
 
   useEffect(() => {
     void recarregar();

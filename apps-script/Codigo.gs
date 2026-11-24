@@ -65,6 +65,7 @@ function despachar_(action, payload, token) {
 
   switch (action) {
     case 'me':                     return usuario;
+    case 'inicio':                 return { usuario: usuario, integrantes: listarIntegrantes_(), config: lerConfig_() };
     case 'sessao.criar':           return criarSessao_(usuario);
     case 'config.ler':             return lerConfig_();
     case 'config.salvar':          return salvarConfig_(usuario, payload);

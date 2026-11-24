@@ -14,6 +14,7 @@ type Contexto = {
   erro: string | null;
   sair: () => void;
   montarBotao: (no: HTMLElement) => void;
+  atualizarUsuario: (u: Usuario) => void;
 };
 
 const Auth = createContext<Contexto | null>(null);
@@ -96,7 +97,14 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
     let cancelado = false;
 
     const guardado = localStorage.getItem(CHAVE_TOKEN);
-    if (guardado && !expirado(guardado)) {
+    const conhecido = lerLocal<Usuario>(CHAVE_USUARIO);
+    if (guardado && !expirado(guardado) && conhecido) {
+      // Sessão válida no aparelho: entra direto. Quem confere com o servidor
+      // é a primeira leitura de dados, logo em seguida.
+      setToken(guardado);
+      setUsuario(conhecido);
+      setCarregando(false);
+    } else if (guardado && !expirado(guardado)) {
       void aceitar(guardado);
     } else {
       localStorage.removeItem(CHAVE_TOKEN);
@@ -153,8 +161,13 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
     setErro(null);
   }, []);
 
+  const atualizarUsuario = useCallback((u: Usuario) => {
+    gravar(CHAVE_USUARIO, u);
+    setUsuario(u);
+  }, []);
+
   return (
-    <Auth.Provider value={{ usuario, token, carregando, erro, sair, montarBotao }}>
+    <Auth.Provider value={{ usuario, token, carregando, erro, sair, montarBotao, atualizarUsuario }}>
       {children}
     </Auth.Provider>
   );

@@ -4,16 +4,26 @@
  */
 const CHAVE = 'sge:feedback';
 
-export type Feedback = { vibrar: boolean; som: boolean };
+export type Feedback = { vibrar: boolean; som: boolean; volume: number };
+
+export const VOLUMES = [
+  { rotulo: 'Baixo', valor: 0.12 },
+  { rotulo: 'Médio', valor: 0.35 },
+  { rotulo: 'Alto', valor: 0.75 },
+] as const;
 
 export function lerFeedback(): Feedback {
   try {
     const bruto = localStorage.getItem(CHAVE);
-    if (!bruto) return { vibrar: true, som: true };
+    if (!bruto) return { vibrar: true, som: true, volume: 0.35 };
     const f = JSON.parse(bruto) as Partial<Feedback>;
-    return { vibrar: f.vibrar !== false, som: f.som !== false };
+    return {
+      vibrar: f.vibrar !== false,
+      som: f.som !== false,
+      volume: typeof f.volume === 'number' ? f.volume : 0.35,
+    };
   } catch {
-    return { vibrar: true, som: true };
+    return { vibrar: true, som: true, volume: 0.35 };
   }
 }
 
@@ -39,16 +49,16 @@ function contexto(): AudioContext | null {
   }
 }
 
-function nota(hz: number, duracao: number): void {
+function nota(hz: number, duracao: number, volumeAlvo: number): void {
   const ctx = contexto();
   if (!ctx) return;
   const osc = ctx.createOscillator();
   const volume = ctx.createGain();
-  osc.type = 'sine';
+  osc.type = 'triangle';
   osc.frequency.value = hz;
   // sobe e desce rápido: clique curto, sem estalo
   volume.gain.setValueAtTime(0.0001, ctx.currentTime);
-  volume.gain.exponentialRampToValueAtTime(0.09, ctx.currentTime + 0.012);
+  volume.gain.exponentialRampToValueAtTime(Math.max(0.02, volumeAlvo), ctx.currentTime + 0.012);
   volume.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duracao);
   osc.connect(volume).connect(ctx.destination);
   osc.start();
@@ -65,18 +75,18 @@ function vibra(padrao: number | number[]): void {
 
 export function avisarMarcou(f: Feedback): void {
   if (f.vibrar) vibra(18);
-  if (f.som) nota(920, 0.07);
+  if (f.som) nota(920, 0.08, f.volume);
 }
 
 export function avisarDesmarcou(f: Feedback): void {
   if (f.vibrar) vibra(12);
-  if (f.som) nota(480, 0.06);
+  if (f.som) nota(480, 0.07, f.volume);
 }
 
 export function avisarSalvou(f: Feedback): void {
   if (f.vibrar) vibra([14, 60, 14]);
   if (f.som) {
-    nota(760, 0.07);
-    window.setTimeout(() => nota(1040, 0.1), 90);
+    nota(760, 0.08, f.volume);
+    window.setTimeout(() => nota(1040, 0.11, f.volume), 90);
   }
 }

@@ -3,7 +3,7 @@ import { useApi, useAuth } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { useDados } from '../lib/dados';
 import { Erro } from '../components/Estados';
-import { avisarMarcou, gravarFeedback, lerFeedback, type Feedback } from '../lib/feedback';
+import { avisarMarcou, gravarFeedback, lerFeedback, VOLUMES, type Feedback } from '../lib/feedback';
 
 type Diagnostico = {
   integrantes: number;
@@ -37,6 +37,7 @@ export function Conta() {
 
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [sentido, setSentido] = useState<Feedback>(lerFeedback);
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
   const alternarJustificativa = async (ligada: boolean) => {
@@ -52,7 +53,7 @@ export function Conta() {
   };
 
   return (
-    <main className="px-4 pb-10 pt-5">
+    <main className="px-4 pb-24 pt-5">
       <h1 className="font-display text-xl font-[600] tracking-tight">Conta</h1>
 
       <section className="mt-4 rounded-xl bg-card px-4 py-4">
@@ -85,6 +86,39 @@ export function Conta() {
             <span className="text-[14px]">{rotulo}</span>
           </label>
         ))}
+
+        {sentido.som ? (
+          <div className="mt-3">
+            <p className="text-[12.5px] text-muted">Volume do apito</p>
+            <div className="mt-1.5 flex gap-2">
+              {VOLUMES.map((v) => {
+                const ativo = Math.abs(sentido.volume - v.valor) < 0.01;
+                return (
+                  <button
+                    key={v.rotulo}
+                    type="button"
+                    onClick={() => {
+                      const nova = { ...sentido, volume: v.valor };
+                      setSentido(nova);
+                      gravarFeedback(nova);
+                      avisarMarcou(nova);
+                    }}
+                    aria-pressed={ativo}
+                    className="flex-1 rounded-full py-2 text-[14px] font-semibold"
+                    style={
+                      ativo
+                        ? { background: 'var(--color-ouro)', color: 'var(--color-preto)' }
+                        : { boxShadow: 'inset 0 0 0 1.5px var(--color-line)' }
+                    }
+                  >
+                    {v.rotulo}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[12.5px] text-muted">Tocar em um volume já toca o apito para você ouvir.</p>
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-4 rounded-xl bg-card px-4 py-4">
@@ -152,9 +186,37 @@ export function Conta() {
 
       {erro ? <Erro mensagem={erro} /> : null}
 
-      <button type="button" onClick={sair} className="mt-6 w-full rounded-full border border-line py-2.5 text-[15px] font-semibold">
-        Sair
-      </button>
+      {confirmandoSaida ? (
+        <div className="mt-6 rounded-xl border border-line px-4 py-4">
+          <p className="text-[14px] leading-relaxed">
+            Sair da sua conta neste aparelho? Para voltar, você vai precisar entrar de novo com o Google.
+          </p>
+          <div className="mt-3 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmandoSaida(false)}
+              className="flex-1 rounded-full border border-line py-2.5 text-[15px] font-semibold"
+            >
+              Continuar no app
+            </button>
+            <button
+              type="button"
+              onClick={sair}
+              className="flex-1 rounded-full bg-falta py-2.5 text-[15px] font-semibold text-texto"
+            >
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirmandoSaida(true)}
+          className="mt-6 w-full rounded-full border border-line py-2.5 text-[15px] font-semibold"
+        >
+          Sair da conta
+        </button>
+      )}
     </main>
   );
 }

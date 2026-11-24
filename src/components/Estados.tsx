@@ -8,7 +8,7 @@ export function Carregando({ texto = 'Carregando' }: { texto?: string }) {
   const [dito] = useState(frase);
   return (
     <div className="px-8 py-12 text-center" role="status">
-      <p className="font-display text-[15px] leading-snug text-ouro">{dito}</p>
+      <p className="mx-auto max-w-[24ch] font-display text-[18px] leading-snug font-[600] text-ouro">{dito}</p>
       <p className="mt-2 text-[13px] text-muted">{texto}…</p>
     </div>
   );

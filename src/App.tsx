@@ -17,8 +17,8 @@ function Rotas() {
   if (!usuario) {
     return carregando ? (
       <main className="grid min-h-dvh place-items-center gap-5 bg-preto text-texto">
-        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-28 w-28" />
-        <p className="max-w-[26ch] px-6 text-center font-display text-[17px] leading-snug text-ouro">{frase()}</p>
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-44 w-44" />
+        <p className="max-w-[24ch] px-6 text-center font-display text-[21px] font-[600] leading-snug text-ouro">{frase()}</p>
         <p className="text-[13px] text-muted">Verificando seu acesso…</p>
       </main>
     ) : (
