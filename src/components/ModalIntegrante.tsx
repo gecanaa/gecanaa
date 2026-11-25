@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { nomeBonito } from '../lib/texto';
 import { Link } from 'react-router-dom';
 import { ramo as corDoRamo } from '../lib/ramos';
 import { Avatar } from './Estados';
@@ -40,7 +41,7 @@ export function ModalIntegrante({ integrante, aoFechar }: { integrante: Integran
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label={`Resumo de ${integrante.nome.trim()}`}
+        aria-label={`Resumo de ${nomeBonito(integrante.nome)}`}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t-2 bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-2xl sm:border-t-0"
         style={{ borderTopColor: r.cor }}
@@ -48,7 +49,7 @@ export function ModalIntegrante({ integrante, aoFechar }: { integrante: Integran
         <div className="flex items-center gap-3.5">
           <Avatar foto={integrante.foto} nome={integrante.nome} cor={r.cor} tamanho={72} />
           <div className="min-w-0">
-            <h2 className="font-display text-[1.25rem] leading-tight font-[700]">{integrante.nome.trim()}</h2>
+            <h2 className="font-display text-[1.25rem] leading-tight font-[700]">{nomeBonito(integrante.nome)}</h2>
             <p className="mt-0.5 text-[13px] text-muted">
               {integrante.ramo || 'Sem ramo'}
               {integrante.status && integrante.status !== 'Ativo' ? ` · ${integrante.status}` : ''}

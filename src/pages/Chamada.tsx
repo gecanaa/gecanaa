@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { nomeBonito } from '../lib/texto';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
@@ -227,11 +228,8 @@ export function Chamada() {
   return (
     <main className="pb-28">
       {/* Título e data por extenso rolam junto com a lista. */}
-      <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
-        <div className="min-w-0">
-          <h1 className="font-display text-xl font-[600] tracking-tight">Chamada</h1>
-          <p className="mt-1 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
-        </div>
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
+        <p className="min-w-0 truncate font-display text-[17px] font-[600] first-letter:uppercase">{porExtenso(data)}</p>
         {lista.length ? (
           <button type="button" onClick={todosPresentes} className="shrink-0 pt-1 text-[13px] font-semibold text-ouro underline">
             Todos presentes
@@ -260,7 +258,7 @@ export function Chamada() {
               disabled={!gravadoNaPlanilha || !resumoPronto}
               aria-label="Compartilhar o resumo da chamada"
               title={gravadoNaPlanilha ? 'Compartilhar o resumo da chamada' : 'Disponível assim que a chamada chegar à planilha'}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ouro text-preto transition-opacity disabled:bg-transparent disabled:text-muted disabled:opacity-60 disabled:shadow-[inset_0_0_0_1.5px_var(--color-line)]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ouro text-preto transition-opacity disabled:bg-transparent disabled:text-muted disabled:opacity-60 disabled:shadow-[inset_0_0_0_1.5px_var(--color-line)]"
             >
               <Icone nome="compartilhar" className="h-4.5 w-4.5" />
             </button>
@@ -319,18 +317,18 @@ function LinhaChamada({
         className="flex items-center gap-3 px-4 py-3 transition-colors duration-200"
         style={aparencia ? { background: `color-mix(in srgb, ${aparencia.cor} 18%, var(--color-card))` } : { background: 'var(--color-card)' }}
       >
-        <button type="button" onClick={onAbrir} aria-label={`Ver dados de ${integrante.nome.trim()}`} className="shrink-0 rounded-full">
+        <button type="button" onClick={onAbrir} aria-label={`Ver dados de ${nomeBonito(integrante.nome)}`} className="shrink-0 rounded-full">
           <Avatar foto={integrante.foto} nome={integrante.nome} cor={r.cor} />
         </button>
 
         <button
           type="button"
           onClick={onToque}
-          aria-label={`${integrante.nome}${aparencia ? `, ${aparencia.rotulo}` : ', falta'}`}
+          aria-label={`${nomeBonito(integrante.nome)}${aparencia ? `, ${aparencia.rotulo}` : ', falta'}`}
           className="flex min-w-0 flex-1 items-center gap-3 py-1 text-left"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium">{integrante.nome.trim()}</span>
+            <span className="block truncate text-[15px] font-medium">{nomeBonito(integrante.nome)}</span>
             {integrante.alergia && integrante.alergia.toLowerCase() !== 'nenhuma' ? (
               <span className="block truncate text-[12px] text-falta">Alergia: {integrante.alergia}</span>
             ) : null}

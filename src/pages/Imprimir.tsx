@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { nomeBonito } from '../lib/texto';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDados } from '../lib/dados';
 import { ramo as corDoRamo } from '../lib/ramos';
@@ -66,7 +67,7 @@ function FichaImpressa({ integrante: i }: { integrante: Integrante }) {
       <header className="flex items-center gap-3 border-b border-line pb-3">
         <img src={LOGO} alt="" className="h-11 w-11 object-contain" />
         <div className="min-w-0">
-          <p className="font-display text-[1.1rem] leading-tight font-[700]">{i.nome.trim()}</p>
+          <p className="font-display text-[1.1rem] leading-tight font-[700]">{nomeBonito(i.nome)}</p>
           <p className="text-[12.5px] text-muted">
             {i.ramo || 'Sem ramo'} · Grupo Escoteiro Canaã 52/DF
           </p>

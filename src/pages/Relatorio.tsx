@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { haQuantoTempo, nomeBonito } from '../lib/texto';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { useZoomLiberado } from '../lib/zoom';
 import { BarraRamosFixa } from '../components/BarraRamos';
+import { Segmentado } from '../components/Segmentado';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 
 type Pessoa = {
@@ -98,32 +100,16 @@ export function Relatorio() {
 
   return (
     <main className="pb-24">
-      <div className="nao-imprime border-b border-line bg-card px-4 py-4">
-        <h1 className="font-display text-xl font-[600] tracking-tight">
-          {modo === 'ranking' ? 'Ranking de assiduidade' : 'Relatório de presença'}
-        </h1>
-
-        <div className="mt-3 flex gap-2">
-          {([
+      <div className="nao-imprime border-b border-line bg-card px-4 py-3">
+        <Segmentado
+          rotulo="Vista do relatório"
+          valor={modo}
+          aoEscolher={setModo}
+          opcoes={[
             ['acompanhamento', 'Acompanhamento'],
             ['ranking', 'Ranking'],
-          ] as const).map(([valor, rotulo]) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setModo(valor)}
-              aria-pressed={modo === valor}
-              className="flex-1 rounded-full py-2 text-[14px] font-semibold"
-              style={
-                modo === valor
-                  ? { background: 'var(--color-ouro)', color: 'var(--color-preto)' }
-                  : { boxShadow: 'inset 0 0 0 1.5px var(--color-line)' }
-              }
-            >
-              {rotulo}
-            </button>
-          ))}
-        </div>
+          ] as const}
+        />
 
         {modo === 'ranking' && temPremiacao && !noPeriodoDaPremiacao ? (
           <button type="button" onClick={usarPeriodoDaPremiacao} className="mt-3 w-full rounded-lg border border-ouro/50 py-2 text-[13.5px] font-semibold text-ouro">
@@ -201,7 +187,7 @@ export function Relatorio() {
                       {medalhas[i]}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-[16px] font-[700]">{p.nome}</span>
+                      <span className="block truncate font-display text-[16px] font-[700]">{nomeBonito(p.nome)}</span>
                       <span className="block text-[12.5px]" style={{ color: r.cor }}>
                         {p.ramo} · {p.presente} de {p.total} chamadas
                       </span>
@@ -223,11 +209,11 @@ export function Relatorio() {
               </p>
               <ul className="mt-2.5 space-y-2">
                 {emAlerta.map((p) => (
-                  <li key={(p.idIntegrante || p.nome) + p.ramo} className="flex items-baseline gap-3 text-[14px]">
-                    <span className="min-w-0 flex-1 truncate">{p.nome}</span>
-                    <span className="shrink-0 text-[12.5px] text-muted">
-                      {(p.faltasSeguidas ?? 0) >= 3 ? `${p.faltasSeguidas} seguidas` : `${p.falta} faltas`}
-                      {p.ultimaPresenca ? ` · veio em ${formatar(p.ultimaPresenca)}` : ' · nunca veio'}
+                  <li key={(p.idIntegrante || p.nome) + p.ramo} className="text-[14px]">
+                    <span className="block leading-snug">{nomeBonito(p.nome)}</span>
+                    <span className="block text-[12.5px] text-muted">
+                      {(p.faltasSeguidas ?? 0) >= 3 ? `${p.faltasSeguidas} faltas seguidas` : `${p.falta} faltas`}
+                      {p.ultimaPresenca ? ` · veio ${haQuantoTempo(p.ultimaPresenca)}` : ' · nunca veio'}
                     </span>
                   </li>
                 ))}
@@ -239,12 +225,12 @@ export function Relatorio() {
             {ordenadas.slice(podio.length).map((p, i) => {
               const r = corDoRamo(p.ramo);
               return (
-                <li key={(p.idIntegrante || p.nome) + p.ramo} className="border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${r.cor}` }}>
+                <li key={(p.idIntegrante || p.nome) + p.ramo} className="border-b border-line px-4 py-3">
                   <div className="flex items-baseline gap-3">
                     {modo === 'ranking' ? (
                       <span className="w-7 shrink-0 font-display text-[14px] font-[700] text-muted">{i + podio.length + 1}º</span>
                     ) : null}
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{p.nome}</span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{nomeBonito(p.nome)}</span>
                     <span className="font-display text-[16px] font-[700]" style={{ color: p.percentual >= 75 ? 'var(--color-presente)' : p.percentual >= 50 ? 'var(--color-justificada)' : 'var(--color-falta)' }}>
                       {p.percentual}%
                     </span>

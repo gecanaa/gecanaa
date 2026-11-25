@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { nomeBonito } from '../lib/texto';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
@@ -129,7 +130,7 @@ export function Ficha() {
         </button>
         <div className="min-w-0">
           <h1 className="font-display text-[1.45rem] leading-tight font-[700] tracking-tight">
-            {dados.nome.trim() || 'Nova ficha'}
+            {nomeBonito(dados.nome) || 'Nova ficha'}
           </h1>
           <p className="mt-0.5 text-[13px] text-muted">
             {dados.ramo || 'Sem ramo'}
@@ -151,12 +152,7 @@ export function Ficha() {
         <h2 className="font-display text-[15px] font-[700]">Em caso de emergência</h2>
         <dl className="mt-3 space-y-2.5 text-[14px]">
           <Par rotulo="Responsável" valor={dados.contatoEmergencia} escuro />
-          <Par
-            rotulo="Telefone"
-            valor={dados.telefoneEmergencia}
-            escuro
-            link={dados.telefoneEmergencia ? `tel:${dados.telefoneEmergencia.replace(/\D/g, '')}` : undefined}
-          />
+          <Par rotulo="Telefone" valor={dados.telefoneEmergencia} escuro />
           <Par rotulo="Alergia" valor={dados.alergia} escuro destaque={!!dados.alergia && dados.alergia.toLowerCase() !== 'nenhuma'} />
           <Par rotulo="Tipo sanguíneo" valor={dados.tipoSanguineo} escuro />
           <Par rotulo="Restrições alimentares" valor={dados.restricoesAlimentares} escuro />
@@ -164,6 +160,15 @@ export function Ficha() {
           <Par rotulo="Sabe nadar" valor={dados.sabeNadar} escuro />
           <Par rotulo="Neurodivergência" valor={dados.neurodivergencia} escuro />
         </dl>
+
+        {dados.telefoneEmergencia?.trim() ? (
+          <a
+            href={`tel:${dados.telefoneEmergencia.replace(/\D/g, '')}`}
+            className="mt-3.5 flex items-center justify-center gap-2 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto"
+          >
+            Ligar para {nomeBonito(dados.contatoEmergencia) || 'o responsável'}
+          </a>
+        ) : null}
       </section>
 
       {editando ? (

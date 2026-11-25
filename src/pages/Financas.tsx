@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { nomeBonito } from '../lib/texto';
 import { useApi, useAuth } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, semAcento, useDados } from '../lib/dados';
 import { ramo as corDoRamo } from '../lib/ramos';
 import { Carregando, Erro, Vazio } from '../components/Estados';
+import { Icone } from '../components/Icone';
+import { Segmentado } from '../components/Segmentado';
 import { reduzir } from '../lib/foto';
 import { compartilharPDF, extratoPDF, reciboPDF } from '../lib/pdf';
 import type { Integrante } from '../lib/tipos';
@@ -96,29 +99,16 @@ export function Financas() {
 
   return (
     <main className="pb-24">
-      <div className="border-b border-line bg-card px-4 py-4">
-        <h1 className="font-display text-xl font-[600] tracking-tight">Finanças</h1>
-        <div className="mt-3 flex gap-2">
-          {([
+      <div className="border-b border-line bg-card px-4 py-3">
+        <Segmentado
+          rotulo="Vista das finanças"
+          valor={aba}
+          aoEscolher={setAba}
+          opcoes={[
             ['caixa', 'Caixa'],
             ['mensalidades', 'Mensalidades'],
-          ] as const).map(([valor, rotulo]) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setAba(valor)}
-              aria-pressed={aba === valor}
-              className="flex-1 rounded-full py-2 text-[14px] font-semibold"
-              style={
-                aba === valor
-                  ? { background: 'var(--color-ouro)', color: 'var(--color-preto)' }
-                  : { boxShadow: 'inset 0 0 0 1.5px var(--color-line)' }
-              }
-            >
-              {rotulo}
-            </button>
-          ))}
-        </div>
+          ] as const}
+        />
       </div>
 
       {aba === 'caixa' ? <Caixa_ api={api} /> : <MensalidadesTela api={api} />}
@@ -210,15 +200,17 @@ function Caixa_({ api }: { api: Api }) {
             <p className="text-[13px] text-muted">
               {lancamentos.length} {lancamentos.length === 1 ? 'lançamento' : 'lançamentos'}
             </p>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {lancamentos.length ? (
                 <button
                   type="button"
                   onClick={() => void enviarExtrato()}
                   disabled={gerando}
-                  className="rounded-full border border-ouro px-3.5 py-2 text-[13.5px] font-semibold text-ouro disabled:opacity-60"
+                  aria-label="Extrato do período em PDF"
+                  title="Extrato do período em PDF"
+                  className="grid h-11 w-11 place-items-center rounded-full text-ouro shadow-[inset_0_0_0_1.5px_var(--color-ouro)] disabled:opacity-50"
                 >
-                  {gerando ? 'Gerando…' : 'Extrato PDF'}
+                  <Icone nome="imprimir" className="h-5 w-5" />
                 </button>
               ) : null}
               <button
@@ -241,7 +233,7 @@ function Caixa_({ api }: { api: Api }) {
                   <li key={l.id} className="border-b border-line">
                     <button type="button" onClick={() => setEditando(l)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-medium">{l.nome || l.categoria}</span>
+                        <span className="block truncate text-[15px] font-medium">{nomeBonito(l.nome) || l.categoria}</span>
                         <span className="block truncate text-[12.5px] text-muted">
                           {l.comprovante ? '📎 ' : ''}
                           {formatarData(l.data)} · {l.categoria}
@@ -737,7 +729,7 @@ function MensalidadesTela({ api }: { api: Api }) {
                   <li key={p.id} className="border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${corDoRamo(p.ramo).cor}` }}>
                     <div className="flex items-center gap-3">
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-medium">{p.nome}</span>
+                        <span className="block truncate text-[15px] font-medium">{nomeBonito(p.nome)}</span>
                         <span className="block text-[12.5px] text-muted">
                           {p.plano}
                           {p.situacao === 'Sem valor' ? ' · valor não definido' : ` · previsto ${moeda(p.esperado)}`}
