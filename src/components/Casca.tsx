@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import { Marca } from './Marca';
 import { Icone } from './Icone';
 
@@ -7,11 +8,15 @@ const ABAS = [
   { para: '/', rotulo: 'Chamada', icone: 'chamada' },
   { para: '/integrantes', rotulo: 'Integrantes', icone: 'pessoas' },
   { para: '/relatorio', rotulo: 'Relatório', icone: 'relatorio' },
+  { para: '/financas', rotulo: 'Finanças', icone: 'dinheiro', soTesouraria: true },
   { para: '/conta', rotulo: 'Conta', icone: 'conta' },
 ] as const;
 
 export function Casca() {
   const topo = useRef<HTMLElement>(null);
+  const { usuario } = useAuth();
+  const cuidaDoCaixa = usuario?.nivel === 'admin' || usuario?.nivel === 'financeiro';
+  const abas = ABAS.filter((a) => !('soTesouraria' in a && a.soTesouraria) || cuidaDoCaixa);
 
   // As barras fixas das telas grudam logo abaixo do cabeçalho, seja qual for
   // a altura dele no aparelho (a faixa de status varia).
@@ -36,9 +41,10 @@ export function Casca() {
       <nav
         aria-label="Seções do sistema"
         data-nav
-        className="nao-imprime fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-card pb-[env(safe-area-inset-bottom)]"
+        className="nao-imprime fixed inset-x-0 bottom-0 z-20 grid border-t border-line bg-card pb-[env(safe-area-inset-bottom)]"
+        style={{ gridTemplateColumns: `repeat(${abas.length}, minmax(0, 1fr))` }}
       >
-        {ABAS.map((aba) => (
+        {abas.map((aba) => (
           <NavLink
             key={aba.para}
             to={aba.para}

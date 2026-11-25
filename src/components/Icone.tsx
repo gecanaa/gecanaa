@@ -6,6 +6,7 @@ const CAMINHOS = {
   voltar: 'M15 5l-7 7 7 7',
   salvar: 'M5 12.5l5 5L19 7',
   relatorio: 'M5 20V9.5M12 20V4.5M19 20v-7M3.5 20h17',
+  dinheiro: 'M3.5 7.5h17v9h-17zM12 15a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5M6.5 10.2v.01M17.5 13.8v.01',
   imprimir: 'M7 9V4h10v5M7 17H5.5A1.5 1.5 0 0 1 4 15.5v-4A1.5 1.5 0 0 1 5.5 10h13a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5H17M7 14h10v6H7z',
 } as const;
 

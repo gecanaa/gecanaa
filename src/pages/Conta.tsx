@@ -41,7 +41,7 @@ export function Conta() {
   const [periodoNaoSalvou, setPeriodoNaoSalvou] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
-  const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string }) => {
+  const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string; mensalidadeValor?: number }) => {
     setErro(null);
     try {
       // Manda a justificativa junto: num Apps Script anterior a esta função,
@@ -163,6 +163,23 @@ export function Conta() {
               </span>
             </span>
           </label>
+
+          <div className="mt-4 border-t border-line pt-3.5">
+            <p className="text-[14px] font-medium">Mensalidade cheia</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">
+              O plano de cada ficha ajusta a partir daqui: Integral paga o valor cheio, Desconto 50% paga metade,
+              Isento não paga.
+            </p>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              value={config.mensalidadeValor || ''}
+              placeholder="0,00"
+              onChange={(e) => void salvarPeriodo({ mensalidadeValor: Number(e.target.value) })}
+              className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[15px]"
+            />
+          </div>
 
           <div className="mt-4 border-t border-line pt-3.5">
             <p className="text-[14px] font-medium">Período da premiação</p>

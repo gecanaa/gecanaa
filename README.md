@@ -5,9 +5,9 @@ Sistema do Grupo Escoteiro Canaã 52/DF, reescrito do zero. O site é estático
 publicado como Web App. **A planilha continua sendo o banco de dados** — nada
 foi migrado para outro lugar.
 
-Hoje o sistema tem **chamada**, **fichas dos integrantes**, **relatório de
-presença** e **fichas em PDF**. Financeiro, progressão, almoxarifado, lojinha e
-lanches entram depois, sobre a mesma base.
+Hoje o sistema tem **chamada**, **fichas dos integrantes**, **relatório e
+ranking de presença**, **fichas em PDF** e **finanças** (caixa e mensalidades).
+Progressão, almoxarifado, lojinha e lanches entram depois, sobre a mesma base.
 
 - Login com conta Google, liberado pela aba `Usuarios` da planilha. Depois de
   entrar, o chefe fica 30 dias sem precisar entrar de novo.
@@ -20,6 +20,12 @@ lanches entram depois, sobre a mesma base.
 - **A chamada funciona sem internet.** Os integrantes ficam guardados no
   aparelho e a chamada salva offline entra numa fila, enviada sozinha quando a
   conexão volta (ou na próxima vez que o app abrir).
+- Depois de salvar a chamada, um toque em **Compartilhar** monta o resumo do
+  dia (presentes, faltas e justificativas) pronto para mandar no WhatsApp.
+- **Finanças** aparece só para quem tem nível `admin` ou `financeiro` na aba
+  `Usuarios`: caixa com entradas e saídas e o controle de mensalidade por mês,
+  que usa o plano financeiro de cada ficha (Integral, Desconto 50%, Isento) e o
+  valor cheio definido em *Conta*.
 - Toda gravação é registrada na aba `Logs`.
 
 ## Como ligar tudo (uma vez)
@@ -87,6 +93,13 @@ já que hoje guarda senha em texto plano.
 Os dois valores ficam visíveis no JavaScript do site, e tudo bem: quem decide
 quem entra é o Apps Script, conferindo o login com o Google e a lista da aba
 `Usuarios`.
+
+## Backup da planilha
+
+A planilha deixou de ser uma planilha e virou o banco de dados do sistema. Rode
+a função `instalarBackupSemanal` **uma vez** pelo editor do Apps Script: ela
+cria o gatilho semanal, guarda uma cópia na pasta *Backups SGE Canaã 52* toda
+segunda-feira de madrugada e mantém as oito mais recentes.
 
 ## Rodando na sua máquina
 

@@ -7,6 +7,7 @@ import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
 import { ModalIntegrante } from '../components/ModalIntegrante';
 import { apagarRascunho, enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
 import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
+import { compartilhar } from '../lib/compartilhar';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
 
@@ -37,6 +38,7 @@ export function Chamada() {
   const [erro, setErro] = useState<string | null>(null);
   const [naFila, setNaFila] = useState(() => pendentes().length);
   const [vendo, setVendo] = useState<Integrante | null>(null);
+  const [resumoPronto, setResumoPronto] = useState<string | null>(null);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
   useEffect(() => {
@@ -138,6 +140,7 @@ export function Chamada() {
 
   const alternar = (id: string) => {
     setAviso(null);
+    setResumoPronto(null);
     setTocado(true);
     const sentido = lerFeedback();
     setMarcas((atual) => {
@@ -191,6 +194,7 @@ export function Chamada() {
       });
       setAviso(`Chamada salva: ${r.presentes} presentes de ${r.gravados}.`);
       avisarSalvou(lerFeedback());
+      setResumoPronto(textoDoResumo(data, ramoAtual, itens));
       apagarRascunho(data, ramoAtual);
       setTocado(false);
       setExistente({ data, ramo: ramoAtual, registros: {}, total: r.gravados });
@@ -200,6 +204,7 @@ export function Chamada() {
         setNaFila(pendentes().length);
         setAviso('Sem internet agora. A chamada ficou guardada no aparelho e vai sozinha quando a conexão voltar.');
         avisarSalvou(lerFeedback());
+        setResumoPronto(textoDoResumo(data, ramoAtual, itens));
         apagarRascunho(data, ramoAtual);
         setTocado(false);
       } else {
@@ -306,6 +311,15 @@ export function Chamada() {
             <p className="font-display text-[15px] font-[600]">
               {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.faltas} faltas</span>
             </p>
+            {resumoPronto ? (
+              <button
+                type="button"
+                onClick={() => void compartilhar(`Chamada ${ramoAtual}`, resumoPronto)}
+                className="rounded-full border border-ouro px-4 py-2 text-[14px] font-semibold text-ouro"
+              >
+                Compartilhar
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void salvar()}
@@ -390,4 +404,33 @@ function LinhaChamada({
       ) : null}
     </li>
   );
+}
+
+/** Texto pronto para mandar no grupo de WhatsApp dos chefes e dos pais. */
+function textoDoResumo(
+  data: string,
+  ramo: string,
+  itens: { nome: string; status: string; justificativa: string }[],
+): string {
+  const presentes = itens.filter((i) => i.status === 'Presente');
+  const justificadas = itens.filter((i) => i.status === 'Falta justificada');
+  const faltas = itens.filter((i) => i.status === 'Falta');
+  const dia = data.split('-').reverse().join('/');
+
+  const linhas = [
+    `*${ramo} — chamada de ${dia}*`,
+    `${presentes.length} ${presentes.length === 1 ? 'presente' : 'presentes'} de ${itens.length}`,
+  ];
+  if (faltas.length) {
+    linhas.push('', `*Faltas (${faltas.length}):*`, faltas.map((i) => `• ${i.nome}`).join('\n'));
+  }
+  if (justificadas.length) {
+    linhas.push(
+      '',
+      `*Faltas justificadas (${justificadas.length}):*`,
+      justificadas.map((i) => `• ${i.nome}${i.justificativa ? ` — ${i.justificativa}` : ''}`).join('\n'),
+    );
+  }
+  linhas.push('', 'Grupo Escoteiro Canaã 52/DF');
+  return linhas.join('\n');
 }

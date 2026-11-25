@@ -12,6 +12,7 @@
 
 const ABAS = {
   usuarios: 'Usuarios',
+  financeiro: 'Financeiro',
   integrantes: 'Integrantes',
   presencas: 'Presencas',
   logs: 'Logs',
@@ -75,6 +76,10 @@ function despachar_(action, payload, token) {
     case 'presencas.chamada':      return lerChamada_(payload);
     case 'presencas.salvar':       return salvarChamada_(usuario, payload);
     case 'presencas.resumo':       return resumoPresencas_(payload);
+    case 'financeiro.listar':      return listarFinanceiro_(usuario, payload);
+    case 'financeiro.salvar':      return salvarLancamento_(usuario, payload);
+    case 'financeiro.excluir':     return excluirLancamento_(usuario, payload);
+    case 'mensalidades.mes':       return mensalidadesDoMes_(usuario, payload);
     case 'diagnostico':            return diagnostico_(usuario);
     default: throw new Error('Ação desconhecida: ' + action);
   }
@@ -176,6 +181,8 @@ function lerConfig_() {
     // Período que vale para a premiação de assiduidade.
     rankingDe: props.getProperty('RANKING_DE') || '',
     rankingAte: props.getProperty('RANKING_ATE') || '',
+    // Valor cheio da mensalidade; o plano de cada ficha ajusta daí.
+    mensalidadeValor: Number(props.getProperty('MENSALIDADE_VALOR') || 0),
   };
 }
 
@@ -195,6 +202,11 @@ function salvarConfig_(usuario, payload) {
   if (Object.prototype.hasOwnProperty.call(payload, 'rankingAte')) {
     props.setProperty('RANKING_ATE', String(payload.rankingAte || ''));
     mudancas.push('fim do ranking em ' + (payload.rankingAte || 'sem data'));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'mensalidadeValor')) {
+    props.setProperty('MENSALIDADE_VALOR', String(Number(payload.mensalidadeValor) || 0));
+    mudancas.push('mensalidade cheia em R$ ' + (Number(payload.mensalidadeValor) || 0));
   }
 
   if (mudancas.length) registrarLog_(usuario, 'Configuração', 'Edição', mudancas.join('; ') + '.');
@@ -226,6 +238,14 @@ function acharUsuario_(email) {
     return { id: '', nome: 'Administrador', email: email, nivel: 'admin' };
   }
   return null;
+}
+
+/** Quem mexe no caixa: administradores e quem tem o nível financeiro. */
+function exigirFinanceiro_(usuario) {
+  const nivel = String(usuario.nivel || '').trim().toLowerCase();
+  if (nivel !== 'admin' && nivel !== 'financeiro') {
+    throw new Error('SEM_PERMISSAO_FINANCEIRO');
+  }
 }
 
 // -------------------------------------------------------------- acesso à planilha
@@ -523,6 +543,174 @@ function resumoPresencas_(payload) {
   };
 }
 
+// ------------------------------------------------------------------- financeiro
+
+const COL_ID_INTEGRANTE_FIN = 'ID Integrante';
+
+function lerLancamentos_() {
+  return tabela_(ABAS.financeiro).linhas.map(function (l) {
+    return {
+      id: String(l['ID'] || ''),
+      data: normalizarData_(l['DATA']),
+      nome: String(l['NOME'] || '').trim(),
+      tipo: String(l['TIPO'] || '').trim(),
+      categoria: String(l['CATEGORIA'] || '').trim(),
+      mes: String(l['MES'] || '').trim(),
+      valor: paraNumero_(l['VALOR']),
+      metodo: String(l['METODO'] || '').trim(),
+      registrado: String(l['REGISTRADO'] || '').trim(),
+      observacao: String(l['Observação'] || '').trim(),
+      idIntegrante: String(l[COL_ID_INTEGRANTE_FIN] || '').trim(),
+      _linha: l._linha,
+    };
+  });
+}
+
+/** Lançamentos do período, do mais novo para o mais antigo, com o resumo do caixa. */
+function listarFinanceiro_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const de = String(payload.de || '0000-00-00');
+  const ate = String(payload.ate || '9999-99-99');
+
+  const todos = lerLancamentos_();
+  const periodo = todos.filter(function (l) { return l.data >= de && l.data <= ate; });
+
+  let entradas = 0;
+  let saidas = 0;
+  const categorias = {};
+  periodo.forEach(function (l) {
+    const saida = l.tipo.toLowerCase().indexOf('sa') === 0;
+    if (saida) saidas += l.valor; else entradas += l.valor;
+    const chave = (saida ? 'Saída' : 'Entrada') + '|' + (l.categoria || 'Sem categoria');
+    categorias[chave] = (categorias[chave] || 0) + l.valor;
+  });
+
+  // O saldo do caixa é histórico, não só do período escolhido.
+  let saldoTotal = 0;
+  todos.forEach(function (l) {
+    saldoTotal += l.tipo.toLowerCase().indexOf('sa') === 0 ? -l.valor : l.valor;
+  });
+
+  periodo.sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
+
+  return {
+    lancamentos: periodo,
+    entradas: entradas,
+    saidas: saidas,
+    saldoPeriodo: entradas - saidas,
+    saldoTotal: saldoTotal,
+    categorias: Object.keys(categorias).map(function (k) {
+      const partes = k.split('|');
+      return { tipo: partes[0], categoria: partes[1], total: categorias[k] };
+    }).sort(function (a, b) { return b.total - a.total; }),
+  };
+}
+
+function salvarLancamento_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const valor = paraNumero_(payload.valor);
+  if (!valor) throw new Error('Informe um valor maior que zero.');
+  if (!payload.data) throw new Error('Informe a data.');
+  if (!payload.tipo) throw new Error('Diga se é entrada ou saída.');
+
+  return comTrava_(function () {
+    const tab = tabela_(ABAS.financeiro);
+    garantirColuna_(tab.aba, COL_ID_INTEGRANTE_FIN);
+    const cabecalho = tab.cabecalho.indexOf(COL_ID_INTEGRANTE_FIN) === -1
+      ? tab.cabecalho.concat([COL_ID_INTEGRANTE_FIN]) : tab.cabecalho;
+
+    const existente = payload.id
+      ? tab.linhas.filter(function (l) { return String(l['ID']) === String(payload.id); })[0]
+      : null;
+
+    const linha = {};
+    linha['ID'] = existente ? existente['ID'] : String(Date.now());
+    linha['DATA'] = String(payload.data);
+    linha['NOME'] = String(payload.nome || '').trim();
+    linha['TIPO'] = String(payload.tipo);
+    linha['CATEGORIA'] = String(payload.categoria || '').trim();
+    linha['MES'] = String(payload.mes || 'Não se aplica');
+    linha['VALOR'] = valor;
+    linha['METODO'] = String(payload.metodo || '').trim();
+    linha['REGISTRADO'] = existente ? existente['REGISTRADO'] : (usuario.nome || usuario.email);
+    linha['Observação'] = String(payload.observacao || '').trim();
+    linha[COL_ID_INTEGRANTE_FIN] = String(payload.idIntegrante || '');
+
+    escreverLinha_(tab.aba, cabecalho, linha, existente ? existente._linha : null);
+    registrarLog_(usuario, 'Financeiro', existente ? 'Edição' : 'Inclusão',
+      linha['TIPO'] + ' de R$ ' + valor + ' em ' + linha['CATEGORIA'] +
+      (linha['NOME'] ? ' (' + linha['NOME'] + ')' : '') + '.');
+    return { id: linha['ID'] };
+  });
+}
+
+function excluirLancamento_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const id = String(payload.id || '');
+  if (!id) throw new Error('Informe qual lançamento excluir.');
+
+  return comTrava_(function () {
+    const tab = tabela_(ABAS.financeiro);
+    const alvo = tab.linhas.filter(function (l) { return String(l['ID']) === id; })[0];
+    if (!alvo) throw new Error('Lançamento não encontrado.');
+    tab.aba.deleteRow(alvo._linha);
+    registrarLog_(usuario, 'Financeiro', 'Exclusão',
+      'Excluiu ' + alvo['TIPO'] + ' de R$ ' + alvo['VALOR'] + ' de ' + (alvo['NOME'] || 'sem nome') + '.');
+    return { excluido: id };
+  });
+}
+
+/** Quem pagou e quem deve a mensalidade de um mês (formato aaaa-mm). */
+function mensalidadesDoMes_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const mes = String(payload.mes || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(mes)) throw new Error('Informe o mês no formato aaaa-mm.');
+
+  const cheia = Number(PropertiesService.getScriptProperties().getProperty('MENSALIDADE_VALOR') || 0);
+  const pagamentos = lerLancamentos_().filter(function (l) {
+    return l.mes === mes && l.categoria.toLowerCase().indexOf('mensalidade') === 0;
+  });
+
+  const pessoas = listarIntegrantes_()
+    .filter(function (i) { return i.status === 'Ativo'; })
+    .map(function (i) {
+      const esperado = valorDoPlano_(i.planoFinanceiro, cheia);
+      const pagos = pagamentos.filter(function (l) {
+        return (l.idIntegrante && l.idIntegrante === i.id) ||
+          (!l.idIntegrante && normalizarNome_(l.nome) === normalizarNome_(i.nome));
+      });
+      const pago = pagos.reduce(function (t, l) { return t + l.valor; }, 0);
+      return {
+        id: i.id, nome: i.nome, ramo: i.ramo, plano: i.planoFinanceiro || 'Integral',
+        esperado: esperado, pago: pago,
+        situacao: esperado === 0 ? 'Isento' : pago >= esperado ? 'Pago' : pago > 0 ? 'Parcial' : 'Em aberto',
+      };
+    });
+
+  return {
+    mes: mes,
+    mensalidadeCheia: cheia,
+    recebido: pagamentos.reduce(function (t, l) { return t + l.valor; }, 0),
+    esperado: pessoas.reduce(function (t, p) { return t + p.esperado; }, 0),
+    pessoas: pessoas.sort(function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); }),
+  };
+}
+
+function valorDoPlano_(plano, cheia) {
+  const p = String(plano || '').toLowerCase();
+  if (p.indexOf('isent') >= 0) return 0;
+  if (p.indexOf('50') >= 0) return Math.round(cheia * 50) / 100;
+  return cheia;
+}
+
+/** Aceita 35, "35", "R$ 35,00" e "1.234,56". */
+function paraNumero_(valor) {
+  if (typeof valor === 'number') return valor;
+  const limpo = String(valor || '').replace(/[^0-9,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+  const n = parseFloat(limpo);
+  return isNaN(n) ? 0 : n;
+}
+
 // ------------------------------------------------------------------ diagnóstico
 
 /** Aponta problemas de dados herdados da planilha, sem alterar nada. */
@@ -576,6 +764,68 @@ function diagnostico_(usuario) {
     uebVencida: uebVencida,
     semRamo: semRamo,
   };
+}
+
+// ----------------------------------------------------------------------- backup
+
+const BACKUPS_GUARDADOS = 8;
+
+/**
+ * Rode `instalarBackupSemanal` UMA vez pelo editor. A partir daí, toda
+ * segunda-feira de madrugada o sistema guarda uma cópia da planilha numa
+ * pasta do Drive e mantém as oito mais recentes.
+ */
+function instalarBackupSemanal() {
+  ScriptApp.getProjectTriggers()
+    .filter(function (g) { return g.getHandlerFunction() === 'backupSemanal'; })
+    .forEach(function (g) { ScriptApp.deleteTrigger(g); });
+
+  ScriptApp.newTrigger('backupSemanal')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(3)
+    .create();
+
+  backupSemanal();
+  Logger.log('Backup semanal instalado e primeira cópia criada.');
+}
+
+function backupSemanal() {
+  const pasta = pastaDeBackups_();
+  const arquivo = DriveApp.getFileById(
+    PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+  const copia = arquivo.makeCopy(
+    'Backup ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd') +
+    ' - ' + arquivo.getName(), pasta);
+
+  // Mantém só as cópias mais recentes, para a pasta não crescer sem fim.
+  const antigos = [];
+  const lista = pasta.getFiles();
+  while (lista.hasNext()) {
+    const f = lista.next();
+    antigos.push({ arquivo: f, quando: f.getDateCreated().getTime() });
+  }
+  antigos.sort(function (a, b) { return b.quando - a.quando; })
+    .slice(BACKUPS_GUARDADOS)
+    .forEach(function (item) { item.arquivo.setTrashed(true); });
+
+  Logger.log('Cópia criada: ' + copia.getName());
+  return copia.getId();
+}
+
+function pastaDeBackups_() {
+  const props = PropertiesService.getScriptProperties();
+  const guardada = props.getProperty('BACKUPS_PASTA_ID');
+  if (guardada) {
+    try {
+      return DriveApp.getFolderById(guardada);
+    } catch (e) {
+      /* pasta apagada: cria outra abaixo */
+    }
+  }
+  const pasta = DriveApp.createFolder('Backups SGE Canaã 52');
+  props.setProperty('BACKUPS_PASTA_ID', pasta.getId());
+  return pasta;
 }
 
 // ------------------------------------------------------------------- utilidades

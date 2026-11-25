@@ -9,6 +9,7 @@ import { Integrantes } from './pages/Integrantes';
 import { Ficha } from './pages/Ficha';
 import { Relatorio } from './pages/Relatorio';
 import { Imprimir } from './pages/Imprimir';
+import { Financas } from './pages/Financas';
 import { Conta } from './pages/Conta';
 
 function Rotas() {
@@ -34,6 +35,7 @@ function Rotas() {
           <Route path="/integrantes" element={<Integrantes />} />
           <Route path="/integrantes/:id" element={<Ficha />} />
           <Route path="/relatorio" element={<Relatorio />} />
+          <Route path="/financas" element={<Financas />} />
           <Route path="/imprimir" element={<Imprimir />} />
           <Route path="/conta" element={<Conta />} />
           <Route path="*" element={<Navigate to="/" replace />} />
