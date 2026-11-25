@@ -90,6 +90,8 @@ export type DadosRecibo = {
   metodo: string;
   registrado: string;
   observacao: string;
+  /** Em branco não aparece no papel. */
+  pagador?: string;
 };
 
 export async function reciboPDF(r: DadosRecibo): Promise<Blob> {
@@ -115,8 +117,16 @@ export async function reciboPDF(r: DadosRecibo): Promise<Blob> {
     y += Math.max(8, (doc.splitTextToSize(valor, 120) as string[]).length * 5.5);
   };
 
-  linha(entrada ? 'Recebido de' : 'Pago a', r.nome || '—');
-  linha('Referente a', r.categoria + (r.mes && r.mes !== 'Não se aplica' ? ` — ${r.mes}` : ''));
+  // Com pagador informado, é dele o recibo; o integrante vira a referência.
+  const pagador = (r.pagador ?? '').trim();
+  if (entrada && pagador) {
+    linha('Recebido de', pagador);
+    linha('Referente a', r.categoria + (r.mes && r.mes !== 'Não se aplica' ? ` — ${r.mes}` : ''));
+    linha('Integrante', r.nome || '—');
+  } else {
+    linha(entrada ? 'Recebido de' : 'Pago a', r.nome || '—');
+    linha('Referente a', r.categoria + (r.mes && r.mes !== 'Não se aplica' ? ` — ${r.mes}` : ''));
+  }
   linha('Data', dataBR(r.data));
   linha('Forma', r.metodo || '—');
   linha('Registrado por', r.registrado || '—');

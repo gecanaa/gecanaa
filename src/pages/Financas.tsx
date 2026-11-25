@@ -25,6 +25,8 @@ type Lancamento = {
   observacao: string;
   idIntegrante: string;
   comprovante: string;
+  /** Quem pagou, quando não é o próprio integrante — em geral, os pais. */
+  pagador: string;
 };
 
 type Caixa = {
@@ -44,6 +46,7 @@ type Pagamento = {
   comprovante: string;
   observacao: string;
   registrado: string;
+  pagador?: string;
 };
 
 type Pessoa = {
@@ -389,7 +392,7 @@ function FormularioLancamento({
       const pdf = await reciboPDF({
         numero: String(l.id ?? ''),
         data: l.data ?? '',
-        nome: l.nome ?? '',
+        nome: nomeBonito(l.nome ?? ''),
         tipo: l.tipo ?? 'Entrada',
         categoria: l.categoria ?? '',
         mes: l.mes && l.mes !== 'Não se aplica' ? nomeDoMes(l.mes) : '',
@@ -397,6 +400,7 @@ function FormularioLancamento({
         metodo: l.metodo ?? '',
         registrado: l.registrado ?? '',
         observacao: l.observacao ?? '',
+        pagador: nomeBonito(l.pagador ?? ''),
       });
       const quem = (l.nome ?? 'recibo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       await compartilharPDF(
@@ -449,6 +453,7 @@ function FormularioLancamento({
 
             <dl className="mt-4 space-y-2 text-[14px]">
               <LinhaLeitura rotulo={saida ? 'Pago a' : 'Recebido de'} valor={nomeBonito(l.nome ?? '')} />
+              {l.pagador?.trim() ? <LinhaLeitura rotulo="Pago por" valor={nomeBonito(l.pagador)} /> : null}
               <LinhaLeitura rotulo="Categoria" valor={l.categoria} />
               {ehMensalidade ? <LinhaLeitura rotulo="Mês" valor={l.mes ? nomeDoMes(l.mes) : ''} /> : null}
               <LinhaLeitura rotulo="Data" valor={formatarData(l.data ?? '')} />
@@ -558,7 +563,13 @@ function FormularioLancamento({
               value={l.idIntegrante ?? ''}
               onChange={(e) => {
                 const escolhido = integrantes.find((i) => i.id === e.target.value);
-                setL({ ...l, idIntegrante: escolhido?.id ?? '', nome: escolhido ? escolhido.nome.trim() : '' });
+                setL({
+                  ...l,
+                  idIntegrante: escolhido?.id ?? '',
+                  nome: escolhido ? escolhido.nome.trim() : '',
+                  // Sugere o responsável da ficha; dá para trocar ou apagar.
+                  pagador: l.pagador?.trim() ? l.pagador : (escolhido?.contatoEmergencia ?? '').trim(),
+                });
                 setBusca(escolhido ? escolhido.nome.trim() : '');
               }}
               className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
@@ -587,6 +598,17 @@ function FormularioLancamento({
             />
           </label>
         )}
+        {ehMensalidade ? (
+          <label className="mt-3 block">
+            <span className="text-[12.5px] text-muted">Pago por</span>
+            <input
+              value={l.pagador ?? ''}
+              onChange={(e) => setL({ ...l, pagador: e.target.value })}
+              placeholder="Mãe, pai ou responsável — deixe em branco se foi o próprio"
+              className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+            />
+          </label>
+        ) : null}
         {!ehMensalidade && sugestoes.length ? (
           <ul className="mt-1 overflow-hidden rounded-lg border border-line">
             {sugestoes.map((i) => (
@@ -767,6 +789,7 @@ function MensalidadesTela({ api }: { api: Api }) {
       valor: Math.max(0, pessoa.esperado - pessoa.pago),
       metodo: 'Transferência PIX',
       observacao: `Mensalidade ${nomeDoMes(mes)}`,
+      pagador: '',
     });
 
   return (
@@ -863,13 +886,13 @@ function MensalidadesTela({ api }: { api: Api }) {
                           <li key={pg.id}>
                             <button
                               type="button"
-                              onClick={() => setLancando({ ...pg, nome: p.nome, idIntegrante: p.id, tipo: 'Entrada', categoria: 'Mensalidade', mes })}
+                              onClick={() => setLancando({ ...pg, nome: p.nome, idIntegrante: p.id, tipo: 'Entrada', categoria: 'Mensalidade', mes, pagador: pg.pagador ?? '' })}
                               className="flex w-full items-center gap-2 rounded-lg bg-card-alto px-3 py-2 text-left text-[12.5px]"
                             >
                               <span className="text-presente">{moeda(pg.valor)}</span>
                               <span className="min-w-0 flex-1 truncate text-muted">
                                 {formatarData(pg.data)} · {pg.metodo || 'forma não informada'}
-                                {pg.registrado ? ` · ${pg.registrado}` : ''}
+                                {pg.pagador ? ` · pago por ${nomeBonito(pg.pagador)}` : ''}
                               </span>
                               {pg.comprovante ? <span aria-label="tem comprovante">📎</span> : null}
                             </button>

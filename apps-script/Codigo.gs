@@ -583,6 +583,7 @@ function resumoPresencas_(payload) {
 
 const COL_ID_INTEGRANTE_FIN = 'ID Integrante';
 const COL_COMPROVANTE = 'Comprovante';
+const COL_PAGADOR = 'Pagador';
 
 function lerLancamentos_() {
   return tabela_(ABAS.financeiro).linhas.map(function (l) {
@@ -599,6 +600,8 @@ function lerLancamentos_() {
       observacao: String(l['Observação'] || '').trim(),
       idIntegrante: String(l[COL_ID_INTEGRANTE_FIN] || '').trim(),
       comprovante: String(l[COL_COMPROVANTE] || '').trim(),
+      // Quem efetivamente pagou, quando não é o próprio integrante.
+      pagador: String(l[COL_PAGADOR] || '').trim(),
       _linha: l._linha,
     };
   });
@@ -655,8 +658,9 @@ function salvarLancamento_(usuario, payload) {
     const tab = tabela_(ABAS.financeiro);
     garantirColuna_(tab.aba, COL_ID_INTEGRANTE_FIN);
     garantirColuna_(tab.aba, COL_COMPROVANTE);
+    garantirColuna_(tab.aba, COL_PAGADOR);
     let cabecalho = tab.cabecalho.slice();
-    [COL_ID_INTEGRANTE_FIN, COL_COMPROVANTE].forEach(function (col) {
+    [COL_ID_INTEGRANTE_FIN, COL_COMPROVANTE, COL_PAGADOR].forEach(function (col) {
       if (cabecalho.indexOf(col) === -1) cabecalho = cabecalho.concat([col]);
     });
 
@@ -677,6 +681,7 @@ function salvarLancamento_(usuario, payload) {
     linha['Observação'] = String(payload.observacao || '').trim();
     linha[COL_ID_INTEGRANTE_FIN] = String(payload.idIntegrante || '');
     linha[COL_COMPROVANTE] = String(payload.comprovante || (existente ? existente[COL_COMPROVANTE] : '') || '');
+    linha[COL_PAGADOR] = String(payload.pagador || '').trim();
 
     escreverLinha_(tab.aba, cabecalho, linha, existente ? existente._linha : null);
     registrarLog_(usuario, 'Financeiro', existente ? 'Edição' : 'Inclusão',
@@ -726,6 +731,7 @@ function mensalidadesDoMes_(usuario, payload) {
         return {
           id: l.id, data: l.data, valor: l.valor, metodo: l.metodo,
           comprovante: l.comprovante, observacao: l.observacao, registrado: l.registrado,
+          pagador: l.pagador,
         };
       });
       const isento = String(i.planoFinanceiro || '').toLowerCase().indexOf('isent') >= 0;
