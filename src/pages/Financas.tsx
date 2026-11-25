@@ -91,6 +91,28 @@ const CATEGORIAS_SAIDA = ['Material', 'Alimentação', 'Manutenção', 'Taxa UEB
 const METODOS = ['Transferência PIX', 'Dinheiro', 'Cartão', 'Outro'];
 
 /** Resposta incompleta do servidor não pode derrubar a tela inteira. */
+/**
+ * Um Apps Script ainda não atualizado devolve menos campos do que a tela
+ * espera. Completar aqui evita que a página inteira caia por causa de uma
+ * lista que não veio.
+ */
+function completarCaixa(c: Partial<Caixa> | null): Caixa {
+  const numero = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return {
+    lancamentos: c?.lancamentos ?? [],
+    entradas: numero(c?.entradas),
+    saidas: numero(c?.saidas),
+    saldoPeriodo: numero(c?.saldoPeriodo),
+    saldoTotal: numero(c?.saldoTotal),
+    saldoConta: c?.saldoConta === undefined ? numero(c?.saldoTotal) : numero(c.saldoConta),
+    saldoEspecie: numero(c?.saldoEspecie),
+    categorias: c?.categorias ?? [],
+    atividades: c?.atividades ?? [],
+    reembolsos: c?.reembolsos ?? [],
+    ultimoFechamento: c?.ultimoFechamento ?? null,
+  };
+}
+
 export const moeda = (v: number | undefined | null) =>
   (Number.isFinite(Number(v)) ? Number(v) : 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -145,7 +167,10 @@ function Caixa_({ api }: { api: Api }) {
   const [de, setDe] = useState(primeiroDiaDoMes());
   const [ate, setAte] = useState(hojeISO());
   const chaveCache = `caixa|${de}|${ate}`;
-  const [caixa, setCaixa] = useState<Caixa | null>(() => lerUltima<Caixa>(chaveCache));
+  const [caixa, setCaixa] = useState<Caixa | null>(() => {
+    const guardado = lerUltima<Caixa>(chaveCache);
+    return guardado ? completarCaixa(guardado) : null;
+  });
   const [carregando, setCarregando] = useState(!caixa);
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lancamento> | null>(null);
@@ -155,7 +180,7 @@ function Caixa_({ api }: { api: Api }) {
   const carregar = useCallback(async () => {
     setErro(null);
     try {
-      const novo = await api<Caixa>('financeiro.listar', { de, ate });
+      const novo = completarCaixa(await api<Caixa>('financeiro.listar', { de, ate }));
       setCaixa(novo);
       gravarUltima(chaveCache, novo);
     } catch (e) {
@@ -168,7 +193,7 @@ function Caixa_({ api }: { api: Api }) {
   useEffect(() => {
     const guardado = lerUltima<Caixa>(chaveCache);
     if (guardado) {
-      setCaixa(guardado);
+      setCaixa(completarCaixa(guardado));
       setCarregando(false);
     }
     void carregar();
@@ -1113,6 +1138,7 @@ function MensalidadesTela({ api }: { api: Api }) {
   const [mes, setMes] = useState(mesAtual());
   const chaveCache = `mensalidades|${mes}`;
   const [dados, setDados] = useState<Mensalidades | null>(() => lerUltima<Mensalidades>(chaveCache));
+  // Em um script anterior, "pessoas" pode vir sem a lista de pagamentos.
   const [carregando, setCarregando] = useState(!dados);
   const [erro, setErro] = useState<string | null>(null);
   const [soDevendo, setSoDevendo] = useState(false);

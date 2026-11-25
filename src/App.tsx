@@ -3,6 +3,7 @@ import { ProvedorAuth, useAuth } from './lib/auth';
 import { frase } from './lib/frases';
 import { ProvedorDados } from './lib/dados';
 import { Casca } from './components/Casca';
+import { Cerca } from './components/Cerca';
 import { Login } from './pages/Login';
 import { Chamada } from './pages/Chamada';
 import { Integrantes } from './pages/Integrantes';
@@ -47,10 +48,12 @@ function Rotas() {
 
 export function App() {
   return (
-    <HashRouter>
-      <ProvedorAuth>
-        <Rotas />
-      </ProvedorAuth>
-    </HashRouter>
+    <Cerca>
+      <HashRouter>
+        <ProvedorAuth>
+          <Rotas />
+        </ProvedorAuth>
+      </HashRouter>
+    </Cerca>
   );
 }
