@@ -11,7 +11,14 @@ import {
 } from './local';
 import type { Integrante, Usuario } from './tipos';
 
-export type Config = { justificativaAtiva: boolean; rankingDe: string; rankingAte: string; mensalidadeValor: number };
+export type Config = {
+  justificativaAtiva: boolean;
+  rankingDe: string;
+  rankingAte: string;
+  mensalidadeValor: number;
+  /** Chave PIX do grupo, usada nas mensagens de cobrança. */
+  chavePix: string;
+};
 
 const CACHE_INTEGRANTES = 'sge:integrantes';
 const CACHE_CONFIG = 'sge:config';
@@ -39,7 +46,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   const api = useApi();
   const { atualizarUsuario, sair } = useAuth();
   const [integrantes, setIntegrantes] = useState<Integrante[]>(() => lerLocal<Integrante[]>(CACHE_INTEGRANTES) ?? []);
-  const [config, setConfig] = useState<Config>(() => lerLocal<Config>(CACHE_CONFIG) ?? { justificativaAtiva: false, rankingDe: '', rankingAte: '', mensalidadeValor: 0 });
+  const [config, setConfig] = useState<Config>(() => lerLocal<Config>(CACHE_CONFIG) ?? { justificativaAtiva: false, rankingDe: '', rankingAte: '', mensalidadeValor: 0, chavePix: '' });
   const [semRede, setSemRede] = useState(false);
   const [gravacoesNaFila, setGravacoesNaFila] = useState(() => gravacoesPendentes().length);
   const [erroDeEnvio, setErroDeEnvio] = useState<string | null>(null);
@@ -58,7 +65,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
         if (!(e instanceof ErroApi) || !/Ação desconhecida/i.test(e.message)) throw e;
         const [integrantesAntigo, configAntiga] = await Promise.all([
           api<Integrante[]>('integrantes.listar'),
-          api<Config>('config.ler').catch(() => ({ justificativaAtiva: false, rankingDe: '', rankingAte: '', mensalidadeValor: 0 })),
+          api<Config>('config.ler').catch(() => ({ justificativaAtiva: false, rankingDe: '', rankingAte: '', mensalidadeValor: 0, chavePix: '' })),
         ]);
         r = { integrantes: integrantesAntigo, config: configAntiga };
       }

@@ -9,6 +9,7 @@ import { Icone } from '../components/Icone';
 import { Segmentado } from '../components/Segmentado';
 import { reduzir } from '../lib/foto';
 import { gravarUltima, lerUltima } from '../lib/local';
+import { compartilhar } from '../lib/compartilhar';
 import { compartilharPDF, extratoPDF, reciboPDF } from '../lib/pdf';
 import type { Integrante } from '../lib/tipos';
 
@@ -27,6 +28,12 @@ type Lancamento = {
   comprovante: string;
   /** Quem pagou, quando não é o próprio integrante — em geral, os pais. */
   pagador: string;
+  /** Centro de custo: acampamento, rifa, JOTA-JOTI. */
+  atividade: string;
+  /** Quem tirou do próprio bolso e espera devolução. */
+  adiantadoPor: string;
+  reembolsado: boolean;
+  onde: 'Conta' | 'Espécie';
 };
 
 type Caixa = {
@@ -35,7 +42,18 @@ type Caixa = {
   saidas: number;
   saldoPeriodo: number;
   saldoTotal: number;
+  saldoConta: number;
+  saldoEspecie: number;
   categorias: { tipo: string; categoria: string; total: number }[];
+  atividades: { atividade: string; entradas: number; saidas: number; saldo: number; ultima: string }[];
+  reembolsos: { id: string; data: string; quem: string; valor: number; categoria: string; nome: string }[];
+  ultimoFechamento: { data: string; conta: number; especie: number; sistema: number; diferenca: number; por: string } | null;
+};
+
+type Devedores = {
+  meses: string[];
+  chavePix: string;
+  pessoas: { id: string; nome: string; ramo: string; responsavel: string; telefone: string; mesesEmAberto: string[]; total: number }[];
 };
 
 type Pagamento = {
@@ -132,6 +150,7 @@ function Caixa_({ api }: { api: Api }) {
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lancamento> | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [conferindo, setConferindo] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(null);
@@ -200,12 +219,74 @@ function Caixa_({ api }: { api: Api }) {
               <p className="font-display text-[2rem] leading-none font-[800]" style={{ color: caixa.saldoTotal < 0 ? 'var(--color-falta)' : 'var(--color-ouro)' }}>
                 {moeda(caixa.saldoTotal)}
               </p>
-              <div className="mt-3 flex gap-4 text-[13px]">
-                <span className="text-presente">Entrou {moeda(caixa.entradas)}</span>
-                <span className="text-falta">Saiu {moeda(caixa.saidas)}</span>
-                <span className="text-muted">no período</span>
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3 text-[13px]">
+                <span>
+                  <span className="block text-muted">Na conta</span>
+                  <span className="font-display text-[15px] font-[700]">{moeda(caixa.saldoConta)}</span>
+                </span>
+                <span>
+                  <span className="block text-muted">Em espécie</span>
+                  <span className="font-display text-[15px] font-[700]">{moeda(caixa.saldoEspecie)}</span>
+                </span>
               </div>
+              <div className="mt-3 flex items-center gap-4 border-t border-line pt-3 text-[13px]">
+                <span className="text-presente">+{moeda(caixa.entradas)}</span>
+                <span className="text-falta">−{moeda(caixa.saidas)}</span>
+                <span className="text-muted">no período</span>
+                <button type="button" onClick={() => setConferindo(true)} className="ml-auto text-[13px] font-semibold text-ouro underline">
+                  Conferir caixa
+                </button>
+              </div>
+              {caixa.ultimoFechamento ? (
+                <p className="mt-2 text-[12px] text-muted">
+                  Última conferência em {formatarData(caixa.ultimoFechamento.data)}
+                  {Math.abs(caixa.ultimoFechamento.diferenca) > 0.009 ? (
+                    <span className="text-falta"> · diferença de {moeda(caixa.ultimoFechamento.diferenca)}</span>
+                  ) : ' · sem diferença'}
+                </p>
+              ) : null}
             </div>
+
+            {caixa.reembolsos.length ? (
+              <div className="mt-3 rounded-xl border-l-4 border-justificada bg-card px-4 py-3.5">
+                <p className="font-display text-[15px] font-[700]">
+                  A devolver <span className="font-sans text-[13px] font-normal text-muted">({caixa.reembolsos.length})</span>
+                </p>
+                <ul className="mt-2 space-y-1.5 text-[13.5px]">
+                  {caixa.reembolsos.map((r) => (
+                    <li key={r.id} className="flex items-baseline gap-3">
+                      <span className="min-w-0 flex-1 truncate">{nomeBonito(r.quem)}</span>
+                      <span className="shrink-0 text-muted">{r.categoria}</span>
+                      <span className="shrink-0 font-semibold">{moeda(r.valor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {caixa.atividades.length ? (
+              <div className="mt-3 rounded-xl bg-card px-4 py-3.5">
+                <p className="font-display text-[15px] font-[700]">Por atividade</p>
+                <ul className="mt-2 space-y-2 text-[13.5px]">
+                  {caixa.atividades.map((a) => (
+                    <li key={a.atividade}>
+                      <div className="flex items-baseline gap-3">
+                        <span className="min-w-0 flex-1 truncate">{a.atividade}</span>
+                        <span
+                          className="shrink-0 font-display font-[700]"
+                          style={{ color: a.saldo < 0 ? 'var(--color-falta)' : 'var(--color-presente)' }}
+                        >
+                          {a.saldo >= 0 ? '+' : '−'} {moeda(Math.abs(a.saldo))}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-muted">
+                        entrou {moeda(a.entradas)} · saiu {moeda(a.saidas)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
 
           <div className="flex items-baseline justify-between gap-3 px-4 pt-5 pb-1">
@@ -280,10 +361,25 @@ function Caixa_({ api }: { api: Api }) {
         </>
       ) : null}
 
+      {conferindo && caixa ? (
+        <ConferirCaixa
+          api={api}
+          saldoDoSistema={caixa.saldoTotal}
+          conta={caixa.saldoConta}
+          especie={caixa.saldoEspecie}
+          aoFechar={() => setConferindo(false)}
+          aoConferir={() => {
+            setConferindo(false);
+            void carregar();
+          }}
+        />
+      ) : null}
+
       {editando ? (
         <FormularioLancamento
           api={api}
           integrantes={integrantes}
+          atividades={(caixa?.atividades ?? []).map((a) => a.atividade)}
           inicial={editando}
           aoFechar={() => setEditando(null)}
           aoSalvar={(salvo) => {
@@ -314,12 +410,14 @@ function FormularioLancamento({
   api,
   integrantes,
   inicial,
+  atividades,
   aoFechar,
   aoSalvar,
 }: {
   api: Api;
   integrantes: Integrante[];
   inicial: Partial<Lancamento>;
+  atividades: string[];
   aoFechar: () => void;
   /** Sem argumento quando o lançamento foi excluído. */
   aoSalvar: (salvo?: Lancamento) => void;
@@ -458,6 +556,10 @@ function FormularioLancamento({
               {ehMensalidade ? <LinhaLeitura rotulo="Mês" valor={l.mes ? nomeDoMes(l.mes) : ''} /> : null}
               <LinhaLeitura rotulo="Data" valor={formatarData(l.data ?? '')} />
               <LinhaLeitura rotulo="Forma" valor={l.metodo} />
+              {l.atividade?.trim() ? <LinhaLeitura rotulo="Atividade" valor={l.atividade} /> : null}
+              {l.adiantadoPor?.trim() ? (
+                <LinhaLeitura rotulo="Adiantado por" valor={`${nomeBonito(l.adiantadoPor)}${l.reembolsado ? ' · já devolvido' : ' · a devolver'}`} />
+              ) : null}
               <LinhaLeitura rotulo="Registrado por" valor={l.registrado} />
               <LinhaLeitura rotulo="Observação" valor={l.observacao} />
             </dl>
@@ -705,6 +807,50 @@ function FormularioLancamento({
         </div>
 
         <label className="mt-3 block">
+          <span className="text-[12.5px] text-muted">Atividade</span>
+          <input
+            list="atividades-conhecidas"
+            value={l.atividade ?? ''}
+            onChange={(e) => setL({ ...l, atividade: e.target.value })}
+            placeholder="Acampamento de fevereiro, rifa, JOTA-JOTI…"
+            className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+          />
+          <datalist id="atividades-conhecidas">
+            {atividades.map((a) => (
+              <option key={a} value={a} />
+            ))}
+          </datalist>
+          <span className="mt-1 block text-[12px] text-muted">
+            Deixe em branco no que é do grupo em geral. Com a atividade preenchida, o caixa mostra se ela se pagou.
+          </span>
+        </label>
+
+        {saida ? (
+          <div className="mt-3">
+            <label className="block">
+              <span className="text-[12.5px] text-muted">Adiantado por</span>
+              <input
+                value={l.adiantadoPor ?? ''}
+                onChange={(e) => setL({ ...l, adiantadoPor: e.target.value })}
+                placeholder="Quem tirou do próprio bolso"
+                className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+              />
+            </label>
+            {l.adiantadoPor?.trim() ? (
+              <label className="mt-2 flex items-center gap-2 text-[14px]">
+                <input
+                  type="checkbox"
+                  checked={!!l.reembolsado}
+                  onChange={(e) => setL({ ...l, reembolsado: e.target.checked })}
+                  className="h-5 w-5 accent-[var(--color-ouro)]"
+                />
+                Já devolvido
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+
+        <label className="mt-3 block">
           <span className="text-[12.5px] text-muted">Observação</span>
           <input value={l.observacao ?? ''} onChange={(e) => setL({ ...l, observacao: e.target.value })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]" />
         </label>
@@ -729,6 +875,228 @@ function FormularioLancamento({
   );
 }
 
+/** Conferência: o que o sistema diz contra o que existe de fato. */
+function ConferirCaixa({
+  api,
+  saldoDoSistema,
+  conta,
+  especie,
+  aoFechar,
+  aoConferir,
+}: {
+  api: Api;
+  saldoDoSistema: number;
+  conta: number;
+  especie: number;
+  aoFechar: () => void;
+  aoConferir: () => void;
+}) {
+  const [informadoConta, setInformadoConta] = useState(String(conta.toFixed(2)));
+  const [informadoEspecie, setInformadoEspecie] = useState(String(especie.toFixed(2)));
+  const [observacao, setObservacao] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const informado = Number(informadoConta || 0) + Number(informadoEspecie || 0);
+  const diferenca = Math.round((informado - saldoDoSistema) * 100) / 100;
+
+  const confirmar = async () => {
+    setSalvando(true);
+    setErro(null);
+    try {
+      await api('caixa.fechar', {
+        data: hojeISO(),
+        conta: Number(informadoConta || 0),
+        especie: Number(informadoEspecie || 0),
+        observacao,
+      });
+      aoConferir();
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível registrar a conferência.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-6" onClick={aoFechar} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Conferir o caixa"
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t-2 border-ouro bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-2xl"
+      >
+        <h2 className="font-display text-[1.15rem] font-[700]">Conferir o caixa</h2>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
+          Informe o que existe de verdade: o saldo do extrato e o dinheiro contado. A diferença aponta lançamento
+          esquecido.
+        </p>
+
+        {erro ? <Erro mensagem={erro} /> : null}
+
+        <label className="mt-4 block">
+          <span className="text-[12.5px] text-muted">Saldo no extrato da conta</span>
+          <input type="number" inputMode="decimal" step="0.01" value={informadoConta} onChange={(e) => setInformadoConta(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[16px]" />
+        </label>
+        <label className="mt-3 block">
+          <span className="text-[12.5px] text-muted">Dinheiro contado</span>
+          <input type="number" inputMode="decimal" step="0.01" value={informadoEspecie} onChange={(e) => setInformadoEspecie(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[16px]" />
+        </label>
+
+        <dl className="mt-4 space-y-2 rounded-lg bg-card-alto px-3.5 py-3 text-[14px]">
+          <LinhaLeitura rotulo="O sistema diz" valor={moeda(saldoDoSistema)} />
+          <LinhaLeitura rotulo="Você contou" valor={moeda(informado)} />
+          <div className="flex items-baseline gap-3 border-t border-line pt-2">
+            <dt className="w-[42%] shrink-0 text-[12.5px] text-muted">Diferença</dt>
+            <dd className="font-display font-[700]" style={{ color: Math.abs(diferenca) < 0.01 ? 'var(--color-presente)' : 'var(--color-falta)' }}>
+              {Math.abs(diferenca) < 0.01 ? 'bate certo' : moeda(diferenca)}
+            </dd>
+          </div>
+        </dl>
+
+        <label className="mt-3 block">
+          <span className="text-[12.5px] text-muted">Observação</span>
+          <input value={observacao} onChange={(e) => setObservacao(e.target.value)} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]" />
+        </label>
+
+        <div className="mt-5 flex gap-3">
+          <button type="button" onClick={aoFechar} className="rounded-full border border-line px-5 py-2.5 text-[15px] font-semibold">
+            Cancelar
+          </button>
+          <button type="button" onClick={() => void confirmar()} disabled={salvando} className="flex-1 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60">
+            {salvando ? 'Registrando' : 'Registrar conferência'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Cobrança de vários meses de uma vez, uma mensagem por responsável. */
+function CobrarEmAberto({ api, mesAtual, aoFechar }: { api: Api; mesAtual: string; aoFechar: () => void }) {
+  const [quantos, setQuantos] = useState(3);
+  const [dados, setDados] = useState<Devedores | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const meses = useMemo(() => {
+    const [ano, mes] = mesAtual.split('-').map(Number);
+    return Array.from({ length: quantos }, (_, i) => {
+      const d = new Date(ano, mes - 1 - i, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }).reverse();
+  }, [mesAtual, quantos]);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
+    setErro(null);
+    api<Devedores>('mensalidades.devedores', { meses })
+      .then((d) => {
+        if (!cancelado) setDados(d);
+      })
+      .catch((e) => {
+        if (!cancelado) setErro(e instanceof ErroApi ? e.message : 'Não foi possível montar a cobrança.');
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [api, meses]);
+
+  const mensagem = (p: Devedores['pessoas'][number]) => {
+    const quem = nomeBonito(p.responsavel) || 'Olá';
+    const lista = p.mesesEmAberto.map((m) => nomeDoMes(m)).join(', ');
+    return [
+      `Oi, ${quem}! Tudo bem?`,
+      '',
+      p.mesesEmAberto.length === 1
+        ? `A mensalidade de ${lista.toLowerCase()} de ${nomeBonito(p.nome)} está em aberto: *${moeda(p.total)}*.`
+        : `${nomeBonito(p.nome)} está com ${p.mesesEmAberto.length} mensalidades em aberto (${lista}), somando *${moeda(p.total)}*.`,
+      ...(dados?.chavePix ? ['', `PIX do grupo: *${dados.chavePix}*`] : []),
+      '',
+      'Qualquer dúvida é só chamar. Obrigado!',
+      '🏕️ _Grupo Escoteiro Canaã 52/DF_',
+    ].join('\n');
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-6" onClick={aoFechar} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cobrar mensalidades em aberto"
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t-2 border-ouro bg-card px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-2xl"
+      >
+        <h2 className="font-display text-[1.15rem] font-[700]">Cobrar em aberto</h2>
+
+        <div className="mt-3 flex gap-2">
+          {[1, 3, 6].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setQuantos(n)}
+              aria-pressed={quantos === n}
+              className="flex-1 rounded-full py-2 text-[13.5px] font-semibold"
+              style={
+                quantos === n
+                  ? { background: 'var(--color-ouro)', color: 'var(--color-preto)' }
+                  : { boxShadow: 'inset 0 0 0 1.5px var(--color-line)' }
+              }
+            >
+              {n === 1 ? 'Este mês' : `Últimos ${n}`}
+            </button>
+          ))}
+        </div>
+
+        {erro ? <Erro mensagem={erro} /> : null}
+        {carregando ? <Carregando texto="Somando o que está em aberto" /> : null}
+
+        {dados && !carregando ? (
+          dados.pessoas.length === 0 ? (
+            <Vazio titulo="Ninguém em aberto" convite="Todo mundo com mensalidade prevista está em dia no período." />
+          ) : (
+            <>
+              <p className="mt-3 text-[13px] text-muted">
+                {dados.pessoas.length} {dados.pessoas.length === 1 ? 'responsável' : 'responsáveis'} ·{' '}
+                {moeda(dados.pessoas.reduce((t, p) => t + p.total, 0))} em aberto
+              </p>
+              <ul className="mt-2">
+                {dados.pessoas.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 border-b border-line py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14.5px] font-medium">{nomeBonito(p.nome)}</span>
+                      <span className="block truncate text-[12.5px] text-muted">
+                        {p.mesesEmAberto.length} {p.mesesEmAberto.length === 1 ? 'mês' : 'meses'} · {moeda(p.total)}
+                        {p.responsavel ? ` · ${nomeBonito(p.responsavel)}` : ' · sem responsável na ficha'}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void compartilhar(`Mensalidade de ${nomeBonito(p.nome)}`, mensagem(p))}
+                      className="shrink-0 rounded-full bg-ouro px-3.5 py-1.5 text-[13px] font-semibold text-preto"
+                    >
+                      Cobrar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        ) : null}
+
+        <button type="button" onClick={aoFechar} className="mt-5 w-full rounded-full border border-line py-2.5 text-[15px] font-semibold">
+          Fechar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LinhaLeitura({ rotulo, valor }: { rotulo: string; valor?: string }) {
   const vazio = !valor?.trim();
   return (
@@ -740,7 +1108,8 @@ function LinhaLeitura({ rotulo, valor }: { rotulo: string; valor?: string }) {
 }
 
 function MensalidadesTela({ api }: { api: Api }) {
-  const { integrantes } = useDados();
+  const { integrantes, config } = useDados();
+  const atividadesConhecidas = (lerUltima<Caixa>('caixa|') ?? { atividades: [] }).atividades?.map((a) => a.atividade) ?? [];
   const [mes, setMes] = useState(mesAtual());
   const chaveCache = `mensalidades|${mes}`;
   const [dados, setDados] = useState<Mensalidades | null>(() => lerUltima<Mensalidades>(chaveCache));
@@ -748,6 +1117,7 @@ function MensalidadesTela({ api }: { api: Api }) {
   const [erro, setErro] = useState<string | null>(null);
   const [soDevendo, setSoDevendo] = useState(false);
   const [lancando, setLancando] = useState<Partial<Lancamento> | null>(null);
+  const [cobrando, setCobrando] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(null);
@@ -775,6 +1145,23 @@ function MensalidadesTela({ api }: { api: Api }) {
     () => (dados?.pessoas ?? []).filter((p) => !soDevendo || p.situacao === 'Em aberto' || p.situacao === 'Parcial'),
     [dados, soDevendo],
   );
+
+  /** Mensagem de cobrança de um mês, pronta para o WhatsApp do responsável. */
+  const cobrar = async (p: Pessoa) => {
+    const integrante = integrantes.find((i) => i.id === p.id);
+    const tratamento = nomeBonito(integrante?.contatoEmergencia ?? '') || 'Olá';
+    const falta = p.esperado - p.pago;
+    const linhas = [
+      `Oi, ${tratamento}! Tudo bem?`,
+      '',
+      `A mensalidade de ${nomeDoMes(mes).toLowerCase()} de ${nomeBonito(p.nome)} está em aberto: *${moeda(falta)}*.`,
+      ...(config.chavePix ? ['', `PIX do grupo: *${config.chavePix}*`] : []),
+      '',
+      'Qualquer dúvida é só chamar. Obrigado!',
+      '🏕️ _Grupo Escoteiro Canaã 52/DF_',
+    ];
+    await compartilhar(`Mensalidade de ${nomeBonito(p.nome)}`, linhas.join('\n'));
+  };
 
   // Abre o lançamento já preenchido: o chefe ainda escolhe forma de
   // pagamento, anexa o comprovante e ajusta o valor, se for o caso.
@@ -833,10 +1220,19 @@ function MensalidadesTela({ api }: { api: Api }) {
                 financeiro da ficha passa a calcular sozinho.
               </p>
             ) : null}
-            <label className="mt-3 flex items-center gap-2 text-[13px] text-muted">
-              <input type="checkbox" checked={soDevendo} onChange={(e) => setSoDevendo(e.target.checked)} className="h-4 w-4 accent-[var(--color-ouro)]" />
-              Mostrar só quem está devendo
-            </label>
+            <div className="mt-3 flex items-center gap-3">
+              <label className="flex flex-1 items-center gap-2 text-[13px] text-muted">
+                <input type="checkbox" checked={soDevendo} onChange={(e) => setSoDevendo(e.target.checked)} className="h-4 w-4 accent-[var(--color-ouro)]" />
+                Mostrar só quem está devendo
+              </label>
+              <button
+                type="button"
+                onClick={() => setCobrando(true)}
+                className="shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold text-ouro shadow-[inset_0_0_0_1.5px_var(--color-ouro)]"
+              >
+                Cobrar em aberto
+              </button>
+            </div>
           </section>
 
           {lista.length === 0 ? (
@@ -870,13 +1266,24 @@ function MensalidadesTela({ api }: { api: Api }) {
                           Pago
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => abrirRecebimento(p)}
-                          className="shrink-0 rounded-full bg-ouro px-3.5 py-1.5 text-[13px] font-semibold text-preto"
-                        >
-                          Receber {moeda(p.esperado - p.pago)}
-                        </button>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void cobrar(p)}
+                            aria-label={`Cobrar ${nomeBonito(p.nome)}`}
+                            title="Cobrar no WhatsApp"
+                            className="grid h-9 w-9 place-items-center rounded-full text-ouro shadow-[inset_0_0_0_1.5px_var(--color-ouro)]"
+                          >
+                            <Icone nome="compartilhar" className="h-4.5 w-4.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => abrirRecebimento(p)}
+                            className="rounded-full bg-ouro px-3.5 py-1.5 text-[13px] font-semibold text-preto"
+                          >
+                            Receber {moeda(p.esperado - p.pago)}
+                          </button>
+                        </span>
                       )}
                     </div>
 
@@ -908,10 +1315,15 @@ function MensalidadesTela({ api }: { api: Api }) {
         </>
       ) : null}
 
+      {cobrando ? (
+        <CobrarEmAberto api={api} mesAtual={mes} aoFechar={() => setCobrando(false)} />
+      ) : null}
+
       {lancando ? (
         <FormularioLancamento
           api={api}
           integrantes={integrantes}
+          atividades={atividadesConhecidas}
           inicial={lancando}
           aoFechar={() => setLancando(null)}
           aoSalvar={() => {

@@ -13,6 +13,7 @@
 const ABAS = {
   usuarios: 'Usuarios',
   financeiro: 'Financeiro',
+  fechamentos: 'Fechamentos',
   integrantes: 'Integrantes',
   presencas: 'Presencas',
   logs: 'Logs',
@@ -80,6 +81,8 @@ function despachar_(action, payload, token) {
     case 'financeiro.salvar':      return salvarLancamento_(usuario, payload);
     case 'financeiro.excluir':     return excluirLancamento_(usuario, payload);
     case 'mensalidades.mes':       return mensalidadesDoMes_(usuario, payload);
+    case 'mensalidades.devedores': return devedores_(usuario, payload);
+    case 'caixa.fechar':           return registrarFechamento_(usuario, payload);
     case 'diagnostico':            return diagnostico_(usuario);
     default: throw new Error('Ação desconhecida: ' + action);
   }
@@ -183,6 +186,7 @@ function lerConfig_() {
     rankingAte: props.getProperty('RANKING_ATE') || '',
     // Valor cheio da mensalidade; o plano de cada ficha ajusta daí.
     mensalidadeValor: Number(props.getProperty('MENSALIDADE_VALOR') || 0),
+    chavePix: props.getProperty('CHAVE_PIX') || '',
   };
 }
 
@@ -207,6 +211,11 @@ function salvarConfig_(usuario, payload) {
   if (Object.prototype.hasOwnProperty.call(payload, 'mensalidadeValor')) {
     props.setProperty('MENSALIDADE_VALOR', String(Number(payload.mensalidadeValor) || 0));
     mudancas.push('mensalidade cheia em R$ ' + (Number(payload.mensalidadeValor) || 0));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'chavePix')) {
+    props.setProperty('CHAVE_PIX', String(payload.chavePix || '').trim());
+    mudancas.push('chave PIX atualizada');
   }
 
   if (mudancas.length) registrarLog_(usuario, 'Configuração', 'Edição', mudancas.join('; ') + '.');
@@ -584,6 +593,14 @@ function resumoPresencas_(payload) {
 const COL_ID_INTEGRANTE_FIN = 'ID Integrante';
 const COL_COMPROVANTE = 'Comprovante';
 const COL_PAGADOR = 'Pagador';
+const COL_ATIVIDADE = 'Atividade';
+const COL_ADIANTADO = 'Adiantado por';
+const COL_REEMBOLSADO = 'Reembolsado';
+
+/** PIX e cartão caem na conta; dinheiro fica em espécie, na mão de alguém. */
+function ondeEstaODinheiro_(metodo) {
+  return String(metodo || '').toLowerCase().indexOf('dinheiro') >= 0 ? 'Espécie' : 'Conta';
+}
 
 function lerLancamentos_() {
   return tabela_(ABAS.financeiro).linhas.map(function (l) {
@@ -602,6 +619,10 @@ function lerLancamentos_() {
       comprovante: String(l[COL_COMPROVANTE] || '').trim(),
       // Quem efetivamente pagou, quando não é o próprio integrante.
       pagador: String(l[COL_PAGADOR] || '').trim(),
+      atividade: String(l[COL_ATIVIDADE] || '').trim(),
+      adiantadoPor: String(l[COL_ADIANTADO] || '').trim(),
+      reembolsado: String(l[COL_REEMBOLSADO] || '').trim().toLowerCase() === 'sim',
+      onde: ondeEstaODinheiro_(l['METODO']),
       _linha: l._linha,
     };
   });
@@ -628,8 +649,29 @@ function listarFinanceiro_(usuario, payload) {
 
   // O saldo do caixa é histórico, não só do período escolhido.
   let saldoTotal = 0;
+  let saldoConta = 0;
+  let saldoEspecie = 0;
   todos.forEach(function (l) {
-    saldoTotal += l.tipo.toLowerCase().indexOf('sa') === 0 ? -l.valor : l.valor;
+    const sinal = l.tipo.toLowerCase().indexOf('sa') === 0 ? -1 : 1;
+    saldoTotal += sinal * l.valor;
+    if (l.onde === 'Espécie') saldoEspecie += sinal * l.valor;
+    else saldoConta += sinal * l.valor;
+  });
+
+  // Atividades funcionam como centro de custo: o que entrou e saiu em cada uma.
+  const atividades = {};
+  todos.filter(function (l) { return l.atividade; }).forEach(function (l) {
+    const a = atividades[l.atividade] || (atividades[l.atividade] = {
+      atividade: l.atividade, entradas: 0, saidas: 0, ultima: '',
+    });
+    if (l.tipo.toLowerCase().indexOf('sa') === 0) a.saidas += l.valor; else a.entradas += l.valor;
+    if (l.data > a.ultima) a.ultima = l.data;
+  });
+
+  const reembolsos = todos.filter(function (l) {
+    return l.adiantadoPor && !l.reembolsado;
+  }).map(function (l) {
+    return { id: l.id, data: l.data, quem: l.adiantadoPor, valor: l.valor, categoria: l.categoria, nome: l.nome };
   });
 
   periodo.sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
@@ -640,6 +682,15 @@ function listarFinanceiro_(usuario, payload) {
     saidas: saidas,
     saldoPeriodo: entradas - saidas,
     saldoTotal: saldoTotal,
+    saldoConta: saldoConta,
+    saldoEspecie: saldoEspecie,
+    atividades: Object.keys(atividades).map(function (k) {
+      const a = atividades[k];
+      a.saldo = a.entradas - a.saidas;
+      return a;
+    }).sort(function (x, y) { return x.ultima < y.ultima ? 1 : -1; }),
+    reembolsos: reembolsos,
+    ultimoFechamento: ultimoFechamento_(),
     categorias: Object.keys(categorias).map(function (k) {
       const partes = k.split('|');
       return { tipo: partes[0], categoria: partes[1], total: categorias[k] };
@@ -660,7 +711,10 @@ function salvarLancamento_(usuario, payload) {
     garantirColuna_(tab.aba, COL_COMPROVANTE);
     garantirColuna_(tab.aba, COL_PAGADOR);
     let cabecalho = tab.cabecalho.slice();
-    [COL_ID_INTEGRANTE_FIN, COL_COMPROVANTE, COL_PAGADOR].forEach(function (col) {
+    [COL_ATIVIDADE, COL_ADIANTADO, COL_REEMBOLSADO].forEach(function (col) {
+      garantirColuna_(tab.aba, col);
+    });
+    [COL_ID_INTEGRANTE_FIN, COL_COMPROVANTE, COL_PAGADOR, COL_ATIVIDADE, COL_ADIANTADO, COL_REEMBOLSADO].forEach(function (col) {
       if (cabecalho.indexOf(col) === -1) cabecalho = cabecalho.concat([col]);
     });
 
@@ -682,6 +736,9 @@ function salvarLancamento_(usuario, payload) {
     linha[COL_ID_INTEGRANTE_FIN] = String(payload.idIntegrante || '');
     linha[COL_COMPROVANTE] = String(payload.comprovante || (existente ? existente[COL_COMPROVANTE] : '') || '');
     linha[COL_PAGADOR] = String(payload.pagador || '').trim();
+    linha[COL_ATIVIDADE] = String(payload.atividade || '').trim();
+    linha[COL_ADIANTADO] = String(payload.adiantadoPor || '').trim();
+    linha[COL_REEMBOLSADO] = payload.reembolsado ? 'Sim' : '';
 
     escreverLinha_(tab.aba, cabecalho, linha, existente ? existente._linha : null);
     registrarLog_(usuario, 'Financeiro', existente ? 'Edição' : 'Inclusão',
@@ -755,6 +812,98 @@ function mensalidadesDoMes_(usuario, payload) {
     esperado: pessoas.reduce(function (t, p) { return t + p.esperado; }, 0),
     pessoas: pessoas.sort(function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); }),
   };
+}
+
+/** Cria a aba quando ela ainda não existe, com o cabeçalho indicado. */
+function garantirAba_(nome, cabecalho) {
+  const planilha = planilha_();
+  let aba = planilha.getSheetByName(nome);
+  if (!aba) {
+    aba = planilha.insertSheet(nome);
+    aba.appendRow(cabecalho);
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+const CABECALHO_FECHAMENTO = [
+  'Data', 'Saldo na conta', 'Saldo em espécie', 'Saldo do sistema', 'Diferença', 'Conferido por', 'Observação',
+];
+
+function ultimoFechamento_() {
+  const aba = planilha_().getSheetByName(ABAS.fechamentos);
+  if (!aba || aba.getLastRow() < 2) return null;
+  const linha = aba.getRange(aba.getLastRow(), 1, 1, CABECALHO_FECHAMENTO.length).getDisplayValues()[0];
+  return {
+    data: normalizarData_(linha[0]),
+    conta: paraNumero_(linha[1]),
+    especie: paraNumero_(linha[2]),
+    sistema: paraNumero_(linha[3]),
+    diferenca: paraNumero_(linha[4]),
+    por: linha[5],
+    observacao: linha[6],
+  };
+}
+
+/**
+ * Confere o que o sistema diz com o que existe de verdade — extrato do banco
+ * e dinheiro contado. É o que pega lançamento esquecido antes de virar um
+ * buraco de meses.
+ */
+function registrarFechamento_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const conta = paraNumero_(payload.conta);
+  const especie = paraNumero_(payload.especie);
+
+  const todos = lerLancamentos_();
+  let sistema = 0;
+  todos.forEach(function (l) {
+    sistema += (l.tipo.toLowerCase().indexOf('sa') === 0 ? -1 : 1) * l.valor;
+  });
+
+  const diferenca = Math.round((conta + especie - sistema) * 100) / 100;
+  const aba = garantirAba_(ABAS.fechamentos, CABECALHO_FECHAMENTO);
+  aba.appendRow([
+    String(payload.data || hojeISO_()), conta, especie, sistema, diferenca,
+    usuario.nome || usuario.email, String(payload.observacao || '').trim(),
+  ]);
+
+  registrarLog_(usuario, 'Financeiro', 'Fechamento',
+    'Conferiu o caixa: R$ ' + (conta + especie) + ' contra R$ ' + sistema + ' do sistema (diferença R$ ' + diferenca + ').');
+  return { sistema: sistema, informado: conta + especie, diferenca: diferenca };
+}
+
+/** Quem está devendo, com os meses em aberto somados e o contato do responsável. */
+function devedores_(usuario, payload) {
+  exigirFinanceiro_(usuario);
+  const meses = (payload.meses || []).filter(function (m) { return /^\d{4}-\d{2}$/.test(m); });
+  if (!meses.length) throw new Error('Informe os meses a cobrar.');
+
+  const cheia = Number(PropertiesService.getScriptProperties().getProperty('MENSALIDADE_VALOR') || 0);
+  const pagamentos = lerLancamentos_().filter(function (l) {
+    return l.categoria.toLowerCase().indexOf('mensalidade') === 0 && meses.indexOf(l.mes) >= 0;
+  });
+
+  const pessoas = listarIntegrantes_()
+    .filter(function (i) { return i.status === 'Ativo'; })
+    .map(function (i) {
+      const esperadoMes = valorDoPlano_(i.planoFinanceiro, cheia);
+      const emAberto = meses.filter(function (mes) {
+        const pago = pagamentos.filter(function (l) {
+          return l.mes === mes && ((l.idIntegrante && l.idIntegrante === i.id) ||
+            (!l.idIntegrante && normalizarNome_(l.nome) === normalizarNome_(i.nome)));
+        }).reduce(function (t, l) { return t + l.valor; }, 0);
+        return esperadoMes > 0 && pago < esperadoMes;
+      });
+      return {
+        id: i.id, nome: i.nome, ramo: i.ramo,
+        responsavel: i.contatoEmergencia, telefone: i.telefoneEmergencia,
+        mesesEmAberto: emAberto, total: Math.round(emAberto.length * esperadoMes * 100) / 100,
+      };
+    })
+    .filter(function (p) { return p.mesesEmAberto.length; });
+
+  return { meses: meses, pessoas: pessoas, chavePix: PropertiesService.getScriptProperties().getProperty('CHAVE_PIX') || '' };
 }
 
 function valorDoPlano_(plano, cheia) {

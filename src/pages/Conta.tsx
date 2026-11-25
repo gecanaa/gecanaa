@@ -41,7 +41,7 @@ export function Conta() {
   const [periodoNaoSalvou, setPeriodoNaoSalvou] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
-  const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string; mensalidadeValor?: number }) => {
+  const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string; mensalidadeValor?: number; chavePix?: string }) => {
     setErro(null);
     try {
       // Manda a justificativa junto: num Apps Script anterior a esta função,
@@ -177,6 +177,19 @@ export function Conta() {
               value={config.mensalidadeValor || ''}
               placeholder="0,00"
               onChange={(e) => void salvarPeriodo({ mensalidadeValor: Number(e.target.value) })}
+              className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[15px]"
+            />
+          </div>
+
+          <div className="mt-4 border-t border-line pt-3.5">
+            <p className="text-[14px] font-medium">Chave PIX do grupo</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">
+              Entra nas mensagens de cobrança de mensalidade enviadas pelo WhatsApp.
+            </p>
+            <input
+              value={config.chavePix ?? ''}
+              placeholder="CNPJ, telefone ou chave aleatória"
+              onChange={(e) => void salvarPeriodo({ chavePix: e.target.value })}
               className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[15px]"
             />
           </div>
