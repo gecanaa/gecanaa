@@ -4,6 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
+import { BarraRamos } from '../components/BarraRamos';
 import { ModalIntegrante } from '../components/ModalIntegrante';
 import { apagarRascunho, enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
 import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
@@ -263,31 +264,8 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 pt-2 pb-2 backdrop-blur">
-          {/* Uma linha só: o ramo escolhido aparece por extenso, os outros
-              ficam na sigla com a cor oficial, que é o que identifica. */}
-          <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-2">
-            {ramos.map((nome) => {
-              const r = corDoRamo(nome);
-              const ativo = nome === ramoAtual;
-              return (
-                <button
-                  key={nome}
-                  type="button"
-                  onClick={() => setRamoAtual(nome)}
-                  aria-pressed={ativo}
-                  aria-label={nome}
-                  title={nome}
-                  className={`shrink-0 rounded-full py-1.5 text-[12.5px] font-semibold ${ativo ? 'px-3.5' : 'w-11'}`}
-                  style={
-                    ativo
-                      ? { background: r.cor, color: 'var(--color-preto)' }
-                      : { color: r.cor, boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
-                  }
-                >
-                  {ativo ? nome : r.curto}
-                </button>
-              );
-            })}
+          <div className="pb-2">
+            <BarraRamos ramos={ramos} ativo={ramoAtual} aoEscolher={setRamoAtual} />
           </div>
 
           {aviso ? <p className="pb-1.5 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}

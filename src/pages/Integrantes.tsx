@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { semAcento, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
+import { BarraRamos } from '../components/BarraRamos';
 import { ModalIntegrante } from '../components/ModalIntegrante';
 import type { Integrante } from '../lib/tipos';
 import { Icone } from '../components/Icone';
@@ -49,15 +50,8 @@ export function Integrantes() {
           />
         </label>
 
-        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-          <Chip ativo={!filtro} cor="var(--color-ouro)" onClick={() => setFiltro('')}>
-            Todos
-          </Chip>
-          {ramos.map((nome) => (
-            <Chip key={nome} ativo={filtro === nome} cor={corDoRamo(nome).cor} onClick={() => setFiltro(nome)}>
-              {nome}
-            </Chip>
-          ))}
+        <div className="mt-3">
+          <BarraRamos ramos={ramos} ativo={filtro} aoEscolher={setFiltro} todos="Todos" />
         </div>
 
         <label className="mt-3 flex items-center gap-2 text-[13px] text-muted">
@@ -111,20 +105,6 @@ export function Integrantes() {
 
       {vendo ? <ModalIntegrante integrante={vendo} aoFechar={() => setVendo(null)} /> : null}
     </main>
-  );
-}
-
-function Chip({ ativo, cor, onClick, children }: { ativo: boolean; cor: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={ativo}
-      className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold"
-      style={ativo ? { background: cor, color: 'var(--color-preto)' } : { color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${cor}` }}
-    >
-      {children}
-    </button>
   );
 }
 

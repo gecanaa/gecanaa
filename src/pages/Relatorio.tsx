@@ -4,6 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { useZoomLiberado } from '../lib/zoom';
+import { BarraRamos } from '../components/BarraRamos';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 
 type Pessoa = {
@@ -151,15 +152,8 @@ export function Relatorio() {
           </label>
         </div>
 
-        <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-          <Chip ativo={!filtroRamo} cor="var(--color-ouro)" onClick={() => setFiltroRamo('')}>
-            Todos os ramos
-          </Chip>
-          {ramos.map((n) => (
-            <Chip key={n} ativo={filtroRamo === n} cor={corDoRamo(n).cor} onClick={() => setFiltroRamo(n)}>
-              {n}
-            </Chip>
-          ))}
+        <div className="mt-3">
+          <BarraRamos ramos={ramos} ativo={filtroRamo} aoEscolher={setFiltroRamo} todos="Todos" />
         </div>
       </div>
 
@@ -292,20 +286,6 @@ function Cartao({ numero, rotulo }: { numero: string; rotulo: string }) {
       <p className="font-display text-[1.6rem] leading-none font-[700] text-ouro">{numero}</p>
       <p className="mt-1 text-[12px] text-muted">{rotulo}</p>
     </div>
-  );
-}
-
-function Chip({ ativo, cor, onClick, children }: { ativo: boolean; cor: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={ativo}
-      className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold"
-      style={ativo ? { background: cor, color: 'var(--color-preto)' } : { color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${cor}` }}
-    >
-      {children}
-    </button>
   );
 }
 
