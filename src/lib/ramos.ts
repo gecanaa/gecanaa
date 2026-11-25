@@ -10,13 +10,31 @@ const RAMOS: Ramo[] = [
 
 const EQUIPE: Ramo = { nome: 'Equipe', cor: 'var(--color-equipe)', curto: 'EQ' };
 
+/** Códigos de duas letras para a barra de ramos caber numa linha só. */
+const CURTOS: Record<string, string> = {
+  lobinho: 'LO',
+  escoteiro: 'ES',
+  senior: 'SE',
+  pioneiro: 'PI',
+  escotista: 'ET',
+  chefia: 'CH',
+  diretoria: 'DI',
+  'equipe de apoio': 'AP',
+};
+
+function codigo(nome: string): string {
+  const limpo = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  return CURTOS[limpo] ?? limpo.slice(0, 2).toUpperCase();
+}
+
 export const RAMOS_JOVENS = RAMOS;
 
 export function ramo(nome: string | undefined): Ramo {
   const alvo = (nome ?? '').trim().toLowerCase();
   const achado = RAMOS.find((r) => r.nome.toLowerCase() === alvo || r.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() === alvo);
   if (achado) return achado;
-  return { ...EQUIPE, nome: (nome ?? '').trim() || 'Sem ramo' };
+  const proprio = (nome ?? '').trim() || 'Sem ramo';
+  return { ...EQUIPE, nome: proprio, curto: codigo(proprio) };
 }
 
 /** Ordem de exibição: ramos dos jovens primeiro, na ordem da progressão. */

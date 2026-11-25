@@ -263,7 +263,9 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 pt-2 pb-2 backdrop-blur">
-          <div className="flex flex-wrap justify-center gap-1.5 pb-2">
+          {/* Uma linha só: o ramo escolhido aparece por extenso, os outros
+              ficam na sigla com a cor oficial, que é o que identifica. */}
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-2">
             {ramos.map((nome) => {
               const r = corDoRamo(nome);
               const ativo = nome === ramoAtual;
@@ -273,14 +275,16 @@ export function Chamada() {
                   type="button"
                   onClick={() => setRamoAtual(nome)}
                   aria-pressed={ativo}
-                  className="rounded-full px-3 py-1.5 text-[12.5px] font-semibold"
+                  aria-label={nome}
+                  title={nome}
+                  className={`shrink-0 rounded-full py-1.5 text-[12.5px] font-semibold ${ativo ? 'px-3.5' : 'w-11'}`}
                   style={
                     ativo
                       ? { background: r.cor, color: 'var(--color-preto)' }
-                      : { color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
+                      : { color: r.cor, boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
                   }
                 >
-                  {nome}
+                  {ativo ? nome : r.curto}
                 </button>
               );
             })}
