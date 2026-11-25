@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
@@ -33,7 +33,6 @@ export function Chamada() {
   // chega do servidor não sobrescreve o que está na tela.
   const [tocado, setTocado] = useState(false);
   const [existente, setExistente] = useState<TipoChamada | null>(null);
-  const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [naFila, setNaFila] = useState(() => pendentes().length);
@@ -41,17 +40,28 @@ export function Chamada() {
   const [resumoPronto, setResumoPronto] = useState<string | null>(null);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
-  useEffect(() => {
-    const despachar = async () => {
+  const despachar = useCallback(
+    async (avisarAoTerminar: boolean) => {
       if (!pendentes().length) return;
       const r = await enviarFila((c) => api('presencas.salvar', { data: c.data, ramo: c.ramo, itens: c.itens }));
       setNaFila(r.restantes);
-      if (r.enviadas) setAviso(`${r.enviadas} ${r.enviadas === 1 ? 'chamada guardada foi enviada' : 'chamadas guardadas foram enviadas'}.`);
-    };
-    void despachar();
-    window.addEventListener('online', despachar);
-    return () => window.removeEventListener('online', despachar);
-  }, [api]);
+      if (r.erro && !(r.erro instanceof ErroApi && r.erro.codigo === 'SEM_REDE')) {
+        setErro(r.erro instanceof ErroApi ? r.erro.message : 'A planilha recusou a chamada guardada.');
+      } else if (r.enviadas && avisarAoTerminar) {
+        setAviso('Chamada salva e registrada na planilha.');
+      } else if (r.enviadas) {
+        setAviso(`${r.enviadas} ${r.enviadas === 1 ? 'chamada guardada foi enviada' : 'chamadas guardadas foram enviadas'}.`);
+      }
+    },
+    [api],
+  );
+
+  useEffect(() => {
+    void despachar(false);
+    const aoVoltar = () => void despachar(false);
+    window.addEventListener('online', aoVoltar);
+    return () => window.removeEventListener('online', aoVoltar);
+  }, [despachar]);
 
   const ramos = useMemo(
     () => ordenarRamos(integrantes.filter((i) => i.status === 'Ativo').map((i) => i.ramo)),
@@ -173,7 +183,7 @@ export function Chamada() {
     return { presentes, faltas: lista.length - presentes };
   }, [lista, marcas]);
 
-  const salvar = async () => {
+  const salvar = () => {
     const itens = lista.map((i) => {
       const marca = marcas[i.id];
       return {
@@ -184,35 +194,22 @@ export function Chamada() {
       };
     });
 
-    setSalvando(true);
+    // A chamada é guardada no aparelho e confirmada na hora; a planilha é
+    // atualizada em segundo plano, porque esperar por ela não ajuda ninguém
+    // no meio da atividade.
+    enfileirar({ data, ramo: ramoAtual, itens });
+    apagarRascunho(data, ramoAtual);
+    setTocado(false);
+    setNaFila(pendentes().length);
     setErro(null);
-    try {
-      const r = await api<{ gravados: number; presentes: number }>('presencas.salvar', {
-        data,
-        ramo: ramoAtual,
-        itens,
-      });
-      setAviso(`Chamada salva: ${r.presentes} presentes de ${r.gravados}.`);
-      avisarSalvou(lerFeedback());
-      setResumoPronto(textoDoResumo(data, ramoAtual, itens));
-      apagarRascunho(data, ramoAtual);
-      setTocado(false);
-      setExistente({ data, ramo: ramoAtual, registros: {}, total: r.gravados });
-    } catch (e) {
-      if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
-        enfileirar({ data, ramo: ramoAtual, itens });
-        setNaFila(pendentes().length);
-        setAviso('Sem internet agora. A chamada ficou guardada no aparelho e vai sozinha quando a conexão voltar.');
-        avisarSalvou(lerFeedback());
-        setResumoPronto(textoDoResumo(data, ramoAtual, itens));
-        apagarRascunho(data, ramoAtual);
-        setTocado(false);
-      } else {
-        setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a chamada.');
-      }
-    } finally {
-      setSalvando(false);
-    }
+
+    const presentes = itens.filter((i) => i.status === 'Presente').length;
+    setAviso(`Chamada salva: ${presentes} presentes de ${itens.length}.`);
+    setExistente({ data, ramo: ramoAtual, registros: {}, total: itens.length });
+    setResumoPronto(textoDoResumo(data, ramoAtual, itens));
+    avisarSalvou(lerFeedback());
+
+    void despachar(true);
   };
 
   if (carregandoIntegrantes) return <Carregando texto="Carregando o quadro do grupo" />;
@@ -322,12 +319,11 @@ export function Chamada() {
             ) : null}
             <button
               type="button"
-              onClick={() => void salvar()}
-              disabled={salvando}
+              onClick={salvar}
               className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2 text-[15px] font-semibold text-preto disabled:opacity-60"
             >
               <Icone nome="salvar" className="h-4.5 w-4.5" />
-              {salvando ? 'Salvando' : 'Salvar chamada'}
+              Salvar chamada
             </button>
           </div>
         </div>

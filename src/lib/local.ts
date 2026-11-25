@@ -55,21 +55,23 @@ export function pendenteDe(data: string, ramo: string): ChamadaPendente | undefi
   return pendentes().find((c) => c.data === data && c.ramo === ramo);
 }
 
-/** Envia o que está na fila, uma a uma; para no primeiro erro de rede. */
+/** Envia o que está na fila, uma a uma; para no primeiro erro e o devolve. */
 export async function enviarFila(
   enviar: (c: ChamadaPendente) => Promise<unknown>,
-): Promise<{ enviadas: number; restantes: number }> {
+): Promise<{ enviadas: number; restantes: number; erro?: unknown }> {
   let enviadas = 0;
+  let erro: unknown;
   for (const chamada of pendentes()) {
     try {
       await enviar(chamada);
       remover(chamada.id);
       enviadas += 1;
-    } catch {
+    } catch (e) {
+      erro = e;
       break;
     }
   }
-  return { enviadas, restantes: pendentes().length };
+  return { enviadas, restantes: pendentes().length, erro };
 }
 
 // ------------------------------------------------- chamada em andamento
