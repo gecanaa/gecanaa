@@ -28,6 +28,8 @@
 }
 
 html {
+  /* Marcador: o app confere isto para saber se o estilo carregou. */
+  --css-pronto: 1;
   background: var(--color-preto);
   /* puxar a lista para baixo não recarrega a página no meio da chamada */
   overscroll-behavior: none;
