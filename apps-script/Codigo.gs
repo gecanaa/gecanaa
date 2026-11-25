@@ -377,7 +377,8 @@ function salvarIntegrante_(usuario, payload) {
         linha[CAMPO_PARA_COLUNA[campo]] = payload[campo];
       }
     });
-    linha['ID'] = existente ? existente['ID'] : String(Date.now());
+    // Um ID vindo do app permite reenviar a mesma gravação sem duplicar.
+    linha['ID'] = existente ? existente['ID'] : String(payload.id || Date.now());
 
     const numeroLinha = escreverLinha_(tab.aba, tab.cabecalho, linha, existente ? existente._linha : null);
     registrarLog_(usuario, 'Cadastro', existente ? 'Edição' : 'Inclusão',
@@ -664,7 +665,7 @@ function salvarLancamento_(usuario, payload) {
       : null;
 
     const linha = {};
-    linha['ID'] = existente ? existente['ID'] : String(Date.now());
+    linha['ID'] = existente ? existente['ID'] : String(payload.id || Date.now());
     linha['DATA'] = String(payload.data);
     linha['NOME'] = String(payload.nome || '').trim();
     linha['TIPO'] = String(payload.tipo);

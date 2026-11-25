@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useDados } from '../lib/dados';
 import { Marca } from './Marca';
 import { Icone } from './Icone';
 
@@ -15,6 +16,7 @@ const ABAS = [
 export function Casca() {
   const topo = useRef<HTMLElement>(null);
   const { usuario } = useAuth();
+  const { gravacoesNaFila, erroDeEnvio, sincronizar } = useDados();
   const cuidaDoCaixa = usuario?.nivel === 'admin' || usuario?.nivel === 'financeiro';
   const abas = ABAS.filter((a) => !('soTesouraria' in a && a.soTesouraria) || cuidaDoCaixa);
 
@@ -35,6 +37,19 @@ export function Casca() {
       <header ref={topo} className="nao-imprime sticky top-0 z-20 border-b-2 border-ouro bg-preto px-4 py-2.5 pt-[calc(0.6rem+env(safe-area-inset-top))]">
         <Marca />
       </header>
+
+      {erroDeEnvio ? (
+        <p className="nao-imprime border-b border-falta bg-[color-mix(in_srgb,var(--color-falta)_18%,var(--color-card))] px-4 py-2 text-[13px] leading-relaxed" role="alert">
+          {erroDeEnvio}{' '}
+          <button type="button" onClick={() => void sincronizar()} className="font-semibold underline">
+            Tentar de novo
+          </button>
+        </p>
+      ) : gravacoesNaFila > 0 ? (
+        <p className="nao-imprime border-b border-line bg-card px-4 py-1.5 text-[12.5px] text-muted" role="status">
+          {gravacoesNaFila === 1 ? 'Enviando uma alteração para a planilha…' : `Enviando ${gravacoesNaFila} alterações para a planilha…`}
+        </p>
+      ) : null}
 
       <Outlet />
 

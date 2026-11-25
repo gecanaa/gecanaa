@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useApi, useAuth } from './auth';
 import { ErroApi } from './api';
-import { gravar, ler as lerLocal, limparRascunhosAntigos } from './local';
+import {
+  enfileirarGravacao,
+  enviarGravacoes,
+  gravacoesPendentes,
+  gravar,
+  ler as lerLocal,
+  limparRascunhosAntigos,
+} from './local';
 import type { Integrante, Usuario } from './tipos';
 
 export type Config = { justificativaAtiva: boolean; rankingDe: string; rankingAte: string; mensalidadeValor: number };
@@ -18,6 +25,11 @@ type Contexto = {
   recarregar: () => Promise<void>;
   aplicar: (i: Integrante) => void;
   semRede: boolean;
+  /** Confirma na tela e manda para a planilha depois. */
+  gravarDepois: (action: string, id: string, payload: Record<string, unknown>, descricao: string) => void;
+  sincronizar: () => Promise<void>;
+  gravacoesNaFila: number;
+  erroDeEnvio: string | null;
 };
 
 const Dados = createContext<Contexto | null>(null);
@@ -29,6 +41,8 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   const [integrantes, setIntegrantes] = useState<Integrante[]>(() => lerLocal<Integrante[]>(CACHE_INTEGRANTES) ?? []);
   const [config, setConfig] = useState<Config>(() => lerLocal<Config>(CACHE_CONFIG) ?? { justificativaAtiva: false, rankingDe: '', rankingAte: '', mensalidadeValor: 0 });
   const [semRede, setSemRede] = useState(false);
+  const [gravacoesNaFila, setGravacoesNaFila] = useState(() => gravacoesPendentes().length);
+  const [erroDeEnvio, setErroDeEnvio] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(() => !lerLocal<Integrante[]>(CACHE_INTEGRANTES)?.length);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -72,10 +86,50 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     }
   }, [api, atualizarUsuario, sair]);
 
+  const sincronizar = useCallback(async () => {
+    if (!gravacoesPendentes().length) return;
+    const r = await enviarGravacoes((g) => api(g.action, g.payload));
+    setGravacoesNaFila(r.restantes);
+    if (r.erro instanceof ErroApi && r.erro.codigo === 'SEM_REDE') {
+      setErroDeEnvio(null);
+    } else if (r.erro) {
+      setErroDeEnvio(
+        `${r.descricao ?? 'Uma gravação'} não foi aceita pela planilha: ${
+          r.erro instanceof ErroApi ? r.erro.message : 'erro desconhecido'
+        }`,
+      );
+    } else {
+      setErroDeEnvio(null);
+    }
+  }, [api]);
+
+  const gravarDepois = useCallback(
+    (action: string, id: string, payload: Record<string, unknown>, descricao: string) => {
+      enfileirarGravacao({ action, id, payload, descricao });
+      setGravacoesNaFila(gravacoesPendentes().length);
+      void sincronizar();
+    },
+    [sincronizar],
+  );
+
+  useEffect(() => {
+    const aoVoltar = () => void sincronizar();
+    window.addEventListener('online', aoVoltar);
+    // Rede instável no acampamento: tenta de novo sozinho enquanto sobrar fila.
+    const relogio = window.setInterval(() => {
+      if (gravacoesPendentes().length) void sincronizar();
+    }, 60_000);
+    return () => {
+      window.removeEventListener('online', aoVoltar);
+      window.clearInterval(relogio);
+    };
+  }, [sincronizar]);
+
   useEffect(() => {
     limparRascunhosAntigos();
+    void sincronizar();
     void recarregar();
-  }, [recarregar]);
+  }, [recarregar, sincronizar]);
 
   const aplicar = useCallback((salvo: Integrante) => {
     setIntegrantes((atual) => {
@@ -96,7 +150,12 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Dados.Provider value={{ integrantes, config, salvarConfig, carregando, erro, recarregar, aplicar, semRede }}>
+    <Dados.Provider
+      value={{
+        integrantes, config, salvarConfig, carregando, erro, recarregar, aplicar, semRede,
+        gravarDepois, sincronizar, gravacoesNaFila, erroDeEnvio,
+      }}
+    >
       {children}
     </Dados.Provider>
   );

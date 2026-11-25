@@ -282,9 +282,23 @@ function Caixa_({ api }: { api: Api }) {
           integrantes={integrantes}
           inicial={editando}
           aoFechar={() => setEditando(null)}
-          aoSalvar={() => {
+          aoSalvar={(salvo) => {
             setEditando(null);
-            void carregar();
+            if (!salvo) {
+              void carregar();
+              return;
+            }
+            setCaixa((atual) =>
+              atual
+                ? {
+                    ...atual,
+                    lancamentos: [salvo, ...atual.lancamentos.filter((x) => x.id !== salvo.id)].sort((a, b) =>
+                      a.data < b.data ? 1 : -1,
+                    ),
+                  }
+                : atual,
+            );
+            window.setTimeout(() => void carregar(), 4000);
           }}
         />
       ) : null}
@@ -303,8 +317,10 @@ function FormularioLancamento({
   integrantes: Integrante[];
   inicial: Partial<Lancamento>;
   aoFechar: () => void;
-  aoSalvar: () => void;
+  /** Sem argumento quando o lançamento foi excluído. */
+  aoSalvar: (salvo?: Lancamento) => void;
 }) {
+  const { gravarDepois } = useDados();
   const [l, setL] = useState<Partial<Lancamento>>(inicial);
   const [salvando, setSalvando] = useState(false);
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
@@ -342,17 +358,20 @@ function FormularioLancamento({
     return integrantes.filter((i) => semAcento(i.nome).includes(termo)).slice(0, 6);
   }, [busca, integrantes, l.nome]);
 
-  const guardar = async () => {
-    setSalvando(true);
-    setErro(null);
-    try {
-      await api('financeiro.salvar', { ...l, mes: ehMensalidade ? l.mes || mesAtual() : 'Não se aplica' });
-      aoSalvar();
-    } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar o lançamento.');
-    } finally {
-      setSalvando(false);
+  // Confirma na hora; a planilha recebe em segundo plano.
+  const guardar = () => {
+    if (!Number(l.valor)) {
+      setErro('Informe um valor maior que zero.');
+      return;
     }
+    const registro = {
+      ...l,
+      id: l.id || String(Date.now()),
+      mes: ehMensalidade ? l.mes || mesAtual() : 'Não se aplica',
+    };
+    gravarDepois('financeiro.salvar', registro.id, registro as unknown as Record<string, unknown>,
+      `O lançamento de ${moeda(Number(registro.valor))}`);
+    aoSalvar(registro as Lancamento);
   };
 
   const enviarRecibo = async () => {
@@ -588,8 +607,8 @@ function FormularioLancamento({
           <button type="button" onClick={aoFechar} className="rounded-full border border-line px-5 py-2.5 text-[15px] font-semibold">
             Cancelar
           </button>
-          <button type="button" onClick={() => void guardar()} disabled={salvando} className="flex-1 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60">
-            {salvando ? 'Salvando' : 'Salvar'}
+          <button type="button" onClick={guardar} className="flex-1 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto">
+            Salvar
           </button>
         </div>
         {l.id ? (
@@ -780,7 +799,7 @@ function MensalidadesTela({ api }: { api: Api }) {
           aoFechar={() => setLancando(null)}
           aoSalvar={() => {
             setLancando(null);
-            void carregar();
+            window.setTimeout(() => void carregar(), 4000);
           }}
         />
       ) : null}

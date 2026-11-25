@@ -22,7 +22,7 @@ export function Ficha() {
   const novo = id === 'novo';
   const navegar = useNavigate();
   const api = useApi();
-  const { integrantes, carregando, aplicar } = useDados();
+  const { integrantes, carregando, aplicar, gravarDepois } = useDados();
 
   const original = useMemo(
     () => (novo ? VAZIO : integrantes.find((i) => i.id === id)),
@@ -31,7 +31,6 @@ export function Ficha() {
 
   const [editando, setEditando] = useState(novo);
   const [rascunho, setRascunho] = useState<Integrante | null>(null);
-  const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -69,25 +68,20 @@ export function Ficha() {
     }
   };
 
-  const salvar = async () => {
+  // A ficha é aceita na hora e sobe para a planilha em segundo plano.
+  const salvar = () => {
     if (!dados.nome.trim()) {
       setErro('O nome é obrigatório.');
       return;
     }
-    setSalvando(true);
+    const salvo = { ...dados, id: dados.id || String(Date.now()) };
+    aplicar(salvo);
+    gravarDepois('integrantes.salvar', salvo.id, salvo as unknown as Record<string, unknown>,
+      `A ficha de ${salvo.nome.trim()}`);
+    setRascunho(null);
+    setEditando(false);
     setErro(null);
-    try {
-      const r2 = await api<{ id: string }>('integrantes.salvar', dados);
-      const salvo = { ...dados, id: r2.id };
-      aplicar(salvo);
-      setRascunho(null);
-      setEditando(false);
-      if (novo) navegar(`/integrantes/${r2.id}`, { replace: true });
-    } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar a ficha.');
-    } finally {
-      setSalvando(false);
-    }
+    if (novo) navegar(`/integrantes/${salvo.id}`, { replace: true });
   };
 
   const cancelar = () => {
@@ -239,11 +233,10 @@ export function Ficha() {
             </button>
             <button
               type="button"
-              onClick={() => void salvar()}
-              disabled={salvando}
-              className="ml-auto rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-preto disabled:opacity-60"
+              onClick={salvar}
+              className="ml-auto rounded-full bg-ouro px-5 py-2.5 text-[15px] font-semibold text-preto"
             >
-              {salvando ? 'Salvando' : 'Salvar ficha'}
+              Salvar ficha
             </button>
           </div>
         ) : (
