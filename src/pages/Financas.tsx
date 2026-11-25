@@ -576,6 +576,16 @@ function MensalidadesTela({ api }: { api: Api }) {
       {dados ? (
         <>
           <section className="px-4 pt-4">
+            {dados.mensalidadeCheia === 0 ? (
+              <div className="mb-3 rounded-xl border-l-4 border-justificada bg-card px-4 py-3.5">
+                <p className="font-display text-[15px] font-[700]">Falta dizer quanto custa a mensalidade</p>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
+                  Enquanto o valor cheio não for definido, o sistema não tem como calcular quem deve o quê. Defina em
+                  <strong className="text-texto"> Conta → Mensalidade cheia</strong>; a partir dele, Integral paga o
+                  valor inteiro, Desconto 50% paga metade e Isento não paga.
+                </p>
+              </div>
+            ) : null}
             <div className="flex gap-3">
               <div className="flex-1 rounded-xl bg-card px-3 py-3">
                 <p className="font-display text-[1.4rem] leading-none font-[700] text-presente">{moeda(dados.recebido)}</p>
@@ -606,18 +616,19 @@ function MensalidadesTela({ api }: { api: Api }) {
                 const cor =
                   p.situacao === 'Pago' ? 'var(--color-presente)'
                   : p.situacao === 'Parcial' ? 'var(--color-justificada)'
-                  : p.situacao === 'Isento' ? 'var(--color-muted)'
+                  : p.situacao === 'Isento' || p.situacao === 'Sem valor' ? 'var(--color-muted)'
                   : 'var(--color-falta)';
                 return (
                   <li key={p.id} className="flex items-center gap-3 border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${corDoRamo(p.ramo).cor}` }}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium">{p.nome}</span>
                       <span className="block text-[12.5px] text-muted">
-                        {p.plano} · previsto {moeda(p.esperado)}
+                        {p.plano}
+                        {p.situacao === 'Sem valor' ? ' · valor não definido' : ` · previsto ${moeda(p.esperado)}`}
                         {p.pago > 0 ? ` · pago ${moeda(p.pago)}` : ''}
                       </span>
                     </span>
-                    {p.situacao === 'Pago' || p.situacao === 'Isento' ? (
+                    {p.situacao === 'Pago' || p.situacao === 'Isento' || p.situacao === 'Sem valor' ? (
                       <span className="shrink-0 text-[13px] font-semibold" style={{ color: cor }}>
                         {p.situacao}
                       </span>
