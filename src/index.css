@@ -44,6 +44,13 @@ body {
   overscroll-behavior: none;
 }
 
+.sem-barra {
+  scrollbar-width: none;
+}
+.sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-ouro);
   outline-offset: 2px;

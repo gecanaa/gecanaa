@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { semAcento, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
-import { BarraRamos } from '../components/BarraRamos';
+import { BarraRamosFixa } from '../components/BarraRamos';
 import { ModalIntegrante } from '../components/ModalIntegrante';
 import type { Integrante } from '../lib/tipos';
 import { Icone } from '../components/Icone';
@@ -31,7 +31,7 @@ export function Integrantes() {
   if (erro) return <Erro mensagem={erro} />;
 
   return (
-    <main className="pb-8">
+    <main className="pb-24">
       <div className="sticky top-[var(--topo,52px)] z-10 border-b border-line bg-card px-4 py-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-display text-xl font-[600] tracking-tight">Integrantes</h1>
@@ -49,10 +49,6 @@ export function Integrantes() {
             className="w-full bg-transparent py-2.5 text-[15px] outline-none"
           />
         </label>
-
-        <div className="mt-3">
-          <BarraRamos ramos={ramos} ativo={filtro} aoEscolher={setFiltro} todos="Todos" />
-        </div>
 
         <label className="mt-3 flex items-center gap-2 text-[13px] text-muted">
           <input type="checkbox" checked={verInativos} onChange={(e) => setVerInativos(e.target.checked)} className="h-4 w-4" />
@@ -102,6 +98,8 @@ export function Integrantes() {
           })}
         </ul>
       )}
+
+      <BarraRamosFixa ramos={ramos} ativo={filtro} aoEscolher={setFiltro} todos="Todos" />
 
       {vendo ? <ModalIntegrante integrante={vendo} aoFechar={() => setVendo(null)} /> : null}
     </main>

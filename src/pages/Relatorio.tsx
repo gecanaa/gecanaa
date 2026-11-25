@@ -4,7 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { useZoomLiberado } from '../lib/zoom';
-import { BarraRamos } from '../components/BarraRamos';
+import { BarraRamosFixa } from '../components/BarraRamos';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 
 type Pessoa = {
@@ -97,7 +97,7 @@ export function Relatorio() {
   };
 
   return (
-    <main className="pb-10">
+    <main className="pb-24">
       <div className="nao-imprime border-b border-line bg-card px-4 py-4">
         <h1 className="font-display text-xl font-[600] tracking-tight">
           {modo === 'ranking' ? 'Ranking de assiduidade' : 'Relatório de presença'}
@@ -152,9 +152,6 @@ export function Relatorio() {
           </label>
         </div>
 
-        <div className="mt-3">
-          <BarraRamos ramos={ramos} ativo={filtroRamo} aoEscolher={setFiltroRamo} todos="Todos" />
-        </div>
       </div>
 
       {erro ? <Erro mensagem={erro} /> : null}
@@ -276,6 +273,7 @@ export function Relatorio() {
           </div>
         </>
       ) : null}
+      <BarraRamosFixa ramos={ramos} ativo={filtroRamo} aoEscolher={setFiltroRamo} todos="Todos" />
     </main>
   );
 }

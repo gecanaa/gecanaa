@@ -1,14 +1,12 @@
+import { useEffect, useRef } from 'react';
 import { ramo as corDoRamo } from '../lib/ramos';
 
-export type OpcaoRamo = { valor: string; rotulo: string; curto: string; cor: string };
-
-/** Acima disso, o nome inteiro não cabe na largura de um celular. */
-const CABEM_POR_EXTENSO = 5;
+type Opcao = { valor: string; rotulo: string; cor: string };
 
 /**
- * Seletor de ramo em uma linha: os nomes dividem a largura por igual, em
- * corpo pequeno, e o escolhido cresce. A cor oficial de cada ramo é o que
- * identifica de relance; o nome está ali para não haver dúvida.
+ * Carretel de ramos: nome por extenso, rolando de lado quando não cabe.
+ * A cor oficial identifica, e o escolhido fica preenchido e centralizado
+ * sozinho — assim o polegar nunca precisa procurar onde parou.
  */
 export function BarraRamos({
   ramos,
@@ -22,20 +20,20 @@ export function BarraRamos({
   /** Rótulo da opção que não filtra nada; ausente, a barra só tem ramos. */
   todos?: string;
 }) {
-  const opcoes: OpcaoRamo[] = [
-    ...(todos ? [{ valor: '', rotulo: todos, curto: todos, cor: 'var(--color-ouro)' }] : []),
-    ...ramos.map((nome) => {
-      const r = corDoRamo(nome);
-      return { valor: nome, rotulo: nome, curto: r.curto, cor: r.cor };
-    }),
+  const trilho = useRef<HTMLDivElement>(null);
+
+  const opcoes: Opcao[] = [
+    ...(todos ? [{ valor: '', rotulo: todos, cor: 'var(--color-ouro)' }] : []),
+    ...ramos.map((nome) => ({ valor: nome, rotulo: nome, cor: corDoRamo(nome).cor })),
   ];
 
-  // Com poucos ramos cabe tudo escrito; com muitos, só o escolhido aparece
-  // por extenso e os outros ficam na sigla, que a cor completa.
-  const apertado = opcoes.length > CABEM_POR_EXTENSO;
+  useEffect(() => {
+    const escolhido = trilho.current?.querySelector('[aria-pressed="true"]');
+    escolhido?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [ativo]);
 
   return (
-    <div className="flex items-stretch gap-1.5">
+    <div ref={trilho} className="sem-barra -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4">
       {opcoes.map((o) => {
         const escolhido = o.valor === ativo;
         return (
@@ -44,20 +42,26 @@ export function BarraRamos({
             type="button"
             onClick={() => aoEscolher(o.valor)}
             aria-pressed={escolhido}
-            title={o.rotulo}
-            className={`min-w-0 basis-0 truncate rounded-full px-1.5 py-1.5 font-semibold ${
-              escolhido ? 'grow-[2.4] text-[13px]' : `grow ${apertado ? 'text-[12px]' : 'text-[11.5px]'}`
-            }`}
+            className="shrink-0 snap-center rounded-full px-4 py-1.5 text-[13.5px] font-semibold whitespace-nowrap"
             style={
               escolhido
                 ? { background: o.cor, color: 'var(--color-preto)' }
                 : { color: o.cor, boxShadow: `inset 0 0 0 1.5px ${o.cor}` }
             }
           >
-            {apertado && !escolhido ? o.curto : o.rotulo}
+            {o.rotulo}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** O mesmo carretel preso ao rodapé, logo acima das abas. */
+export function BarraRamosFixa(props: Parameters<typeof BarraRamos>[0]) {
+  return (
+    <div className="nao-imprime fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-2 backdrop-blur">
+      <BarraRamos {...props} />
     </div>
   );
 }
