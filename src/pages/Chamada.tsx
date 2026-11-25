@@ -216,7 +216,7 @@ export function Chamada() {
   if (erroIntegrantes) return <Erro mensagem={erroIntegrantes} />;
 
   return (
-    <main className="pb-24">
+    <main className="pb-40">
       {/* Título e data por extenso rolam junto com a lista. */}
       <div className="px-4 pt-4 pb-3">
         <h1 className="font-display text-xl font-[600] tracking-tight">Chamada</h1>
@@ -224,45 +224,20 @@ export function Chamada() {
       </div>
 
       {/* Esta barra fica. Altura sempre a mesma, para a lista nunca pular. */}
-      <div className="sticky top-[var(--topo,52px)] z-10 border-b border-line bg-card px-4 py-2">
+      <div className="sticky top-[var(--topo,52px)] z-10 flex items-center gap-3 border-b border-line bg-card px-4 py-2">
         <input
           type="date"
           aria-label="Data da chamada"
           value={data}
           onChange={(e) => setData(e.target.value)}
-          className="block w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-[14px]"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-[14px]"
         />
-
-        <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
-          {ramos.map((nome) => {
-            const r = corDoRamo(nome);
-            const ativo = nome === ramoAtual;
-            return (
-              <button
-                key={nome}
-                type="button"
-                onClick={() => setRamoAtual(nome)}
-                aria-pressed={ativo}
-                className="shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
-                style={
-                  ativo
-                    ? { background: r.cor, color: 'var(--color-preto)' }
-                    : { background: 'transparent', color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
-                }
-              >
-                {nome}
-              </button>
-            );
-          })}
-        </div>
-
+        {lista.length ? (
+          <button type="button" onClick={todosPresentes} className="shrink-0 text-[13px] font-semibold text-ouro underline">
+            Todos presentes
+          </button>
+        ) : null}
       </div>
-
-      {existente && existente.total > 0 ? (
-        <p className="mx-4 mt-4 rounded-lg bg-card px-3.5 py-2.5 text-[13px] leading-relaxed text-muted">
-          Já existe chamada deste dia para {ramoAtual}. Ao salvar, ela é substituída pela desta tela.
-        </p>
-      ) : null}
 
       {erro ? <Erro mensagem={erro} /> : null}
 
@@ -275,29 +250,42 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <>
-          <div className="flex items-center justify-between px-4 pt-5 pb-2">
-            <p className="text-[13px] text-muted">
-              {config.justificativaAtiva
-                ? 'Toque para marcar presença, de novo para justificar a falta. Em branco conta como falta.'
-                : 'Toque para marcar presença. Quem ficar em branco conta como falta.'}
-            </p>
-            <button type="button" onClick={todosPresentes} className="shrink-0 pl-3 text-[13px] font-semibold text-ouro underline">
-              Todos presentes
-            </button>
-          </div>
-
-          <ul>
+          <ul className="pt-1">
             {lista.map((i) => (
-              <LinhaChamada key={i.id} integrante={i} marca={marcas[i.id]} onToque={() => alternar(i.id)} onAbrir={() => setVendo(i)} onJustificar={(texto) =>
-                setMarcas((atual) => ({ ...atual, [i.id]: { status: 'Falta justificada', justificativa: texto } }))
-              } />
+              <LinhaChamada key={i.id} integrante={i} marca={marcas[i.id]} onToque={() => alternar(i.id)} onAbrir={() => setVendo(i)} onJustificar={(texto) => {
+                setTocado(true);
+                setMarcas((atual) => ({ ...atual, [i.id]: { status: 'Falta justificada', justificativa: texto } }));
+              }} />
             ))}
           </ul>
         </>
       ) : null}
 
       {lista.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 py-2 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 pt-2 pb-2 backdrop-blur">
+          <div className="flex flex-wrap justify-center gap-1.5 pb-2">
+            {ramos.map((nome) => {
+              const r = corDoRamo(nome);
+              const ativo = nome === ramoAtual;
+              return (
+                <button
+                  key={nome}
+                  type="button"
+                  onClick={() => setRamoAtual(nome)}
+                  aria-pressed={ativo}
+                  className="rounded-full px-3 py-1.5 text-[12.5px] font-semibold"
+                  style={
+                    ativo
+                      ? { background: r.cor, color: 'var(--color-preto)' }
+                      : { color: 'var(--color-texto)', boxShadow: `inset 0 0 0 1.5px ${r.cor}` }
+                  }
+                >
+                  {nome}
+                </button>
+              );
+            })}
+          </div>
+
           {aviso ? <p className="pb-1.5 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
           {naFila > 0 && !aviso ? (
             <p className="pb-1.5 text-[13px] font-medium text-justificada" role="status">
@@ -305,14 +293,18 @@ export function Chamada() {
             </p>
           ) : null}
           <div className="flex items-center gap-3">
-            <p className="font-display text-[15px] font-[600]">
-              {contagem.presentes} <span className="font-sans text-[13px] font-normal text-muted">presentes · {contagem.faltas} faltas</span>
+            <p className="min-w-0 font-display text-[15px] leading-tight font-[600]">
+              {contagem.presentes}/{lista.length}{' '}
+              <span className="font-sans text-[13px] font-normal text-muted">presentes</span>
+              {existente && existente.total > 0 ? (
+                <span className="block font-sans text-[11.5px] font-normal text-muted">chamada já registrada neste dia</span>
+              ) : null}
             </p>
             {resumoPronto ? (
               <button
                 type="button"
                 onClick={() => void compartilhar(`Chamada ${ramoAtual}`, resumoPronto)}
-                className="rounded-full border border-ouro px-4 py-2 text-[14px] font-semibold text-ouro"
+                className="shrink-0 whitespace-nowrap rounded-full border border-ouro px-4 py-2 text-[14px] font-semibold text-ouro"
               >
                 Compartilhar
               </button>
@@ -320,7 +312,7 @@ export function Chamada() {
             <button
               type="button"
               onClick={salvar}
-              className="ml-auto flex items-center gap-2 rounded-full bg-ouro px-5 py-2 text-[15px] font-semibold text-preto disabled:opacity-60"
+              className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-ouro px-5 py-2 text-[15px] font-semibold text-preto"
             >
               <Icone nome="salvar" className="h-4.5 w-4.5" />
               Salvar chamada
