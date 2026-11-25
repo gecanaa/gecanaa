@@ -5,6 +5,7 @@ import { hojeISO, semAcento, useDados } from '../lib/dados';
 import { ramo as corDoRamo } from '../lib/ramos';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 import { reduzir } from '../lib/foto';
+import { compartilharPDF, extratoPDF, reciboPDF } from '../lib/pdf';
 import type { Integrante } from '../lib/tipos';
 
 type Lancamento = {
@@ -135,6 +136,7 @@ function Caixa_({ api }: { api: Api }) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lancamento> | null>(null);
+  const [gerando, setGerando] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(null);
@@ -153,6 +155,24 @@ function Caixa_({ api }: { api: Api }) {
 
   const lancamentos = caixa?.lancamentos ?? [];
   const categorias = caixa?.categorias ?? [];
+
+  const enviarExtrato = async () => {
+    if (!caixa) return;
+    setGerando(true);
+    setErro(null);
+    try {
+      const pdf = await extratoPDF({ de, ate, ...caixa });
+      await compartilharPDF(
+        `extrato-canaa52-${de}-a-${ate}.pdf`,
+        pdf,
+        `Extrato do caixa de ${de.split('-').reverse().join('/')} a ${ate.split('-').reverse().join('/')} — Grupo Escoteiro Canaã 52/DF`,
+      );
+    } catch (e) {
+      setErro('Não foi possível gerar o extrato.');
+    } finally {
+      setGerando(false);
+    }
+  };
 
   return (
     <>
@@ -190,13 +210,25 @@ function Caixa_({ api }: { api: Api }) {
             <p className="text-[13px] text-muted">
               {lancamentos.length} {lancamentos.length === 1 ? 'lançamento' : 'lançamentos'}
             </p>
-            <button
-              type="button"
-              onClick={() => setEditando({ data: hojeISO(), tipo: 'Entrada', categoria: 'Mensalidade', metodo: 'Transferência PIX' })}
-              className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto"
-            >
-              Novo lançamento
-            </button>
+            <div className="flex shrink-0 gap-2">
+              {lancamentos.length ? (
+                <button
+                  type="button"
+                  onClick={() => void enviarExtrato()}
+                  disabled={gerando}
+                  className="rounded-full border border-ouro px-3.5 py-2 text-[13.5px] font-semibold text-ouro disabled:opacity-60"
+                >
+                  {gerando ? 'Gerando…' : 'Extrato PDF'}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setEditando({ data: hojeISO(), tipo: 'Entrada', categoria: 'Mensalidade', metodo: 'Transferência PIX' })}
+                className="rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto"
+              >
+                Novo lançamento
+              </button>
+            </div>
           </div>
 
           {lancamentos.length === 0 ? (
@@ -276,6 +308,7 @@ function FormularioLancamento({
   const [l, setL] = useState<Partial<Lancamento>>(inicial);
   const [salvando, setSalvando] = useState(false);
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
+  const [gerandoRecibo, setGerandoRecibo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState(inicial.nome ?? '');
   const camera = useRef<HTMLInputElement>(null);
@@ -319,6 +352,35 @@ function FormularioLancamento({
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar o lançamento.');
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const enviarRecibo = async () => {
+    setGerandoRecibo(true);
+    setErro(null);
+    try {
+      const pdf = await reciboPDF({
+        numero: String(l.id ?? ''),
+        data: l.data ?? '',
+        nome: l.nome ?? '',
+        tipo: l.tipo ?? 'Entrada',
+        categoria: l.categoria ?? '',
+        mes: l.mes && l.mes !== 'Não se aplica' ? nomeDoMes(l.mes) : '',
+        valor: Number(l.valor ?? 0),
+        metodo: l.metodo ?? '',
+        registrado: l.registrado ?? '',
+        observacao: l.observacao ?? '',
+      });
+      const quem = (l.nome ?? 'recibo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      await compartilharPDF(
+        `recibo-${quem || 'canaa52'}-${l.data ?? ''}.pdf`,
+        pdf,
+        `Recibo do Grupo Escoteiro Canaã 52/DF — ${l.categoria ?? ''}`,
+      );
+    } catch (e) {
+      setErro('Não foi possível gerar o recibo.');
+    } finally {
+      setGerandoRecibo(false);
     }
   };
 
@@ -531,9 +593,19 @@ function FormularioLancamento({
           </button>
         </div>
         {l.id ? (
-          <button type="button" onClick={() => void excluir()} disabled={salvando} className="mt-3 w-full text-[13.5px] font-semibold text-falta underline">
-            Excluir este lançamento
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void enviarRecibo()}
+              disabled={gerandoRecibo}
+              className="mt-3 w-full rounded-full border border-ouro py-2.5 text-[14px] font-semibold text-ouro disabled:opacity-60"
+            >
+              {gerandoRecibo ? 'Gerando recibo…' : 'Recibo em PDF para o WhatsApp'}
+            </button>
+            <button type="button" onClick={() => void excluir()} disabled={salvando} className="mt-3 w-full text-[13.5px] font-semibold text-falta underline">
+              Excluir este lançamento
+            </button>
+          </>
         ) : null}
       </div>
     </div>
