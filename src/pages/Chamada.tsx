@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApi } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
@@ -6,8 +6,8 @@ import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
 import { BarraRamos } from '../components/BarraRamos';
 import { ModalIntegrante } from '../components/ModalIntegrante';
-import { apagarRascunho, enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
-import { avisarDesmarcou, avisarMarcou, avisarSalvou, lerFeedback } from '../lib/feedback';
+import { enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
+import { avisarDesmarcou, avisarMarcou, lerFeedback } from '../lib/feedback';
 import { compartilhar } from '../lib/compartilhar';
 import { Icone } from '../components/Icone';
 import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/tipos';
@@ -16,6 +16,9 @@ import type { Chamada as TipoChamada, Integrante, StatusPresenca } from '../lib/
  * Quem está marcado é presença; linha em branco conta como falta na hora de
  * salvar. A justificativa só entra no ciclo se o grupo tiver ativado.
  */
+/** Tempo de calma depois do último toque antes de gravar. */
+const ESPERA_ATE_GRAVAR = 2500;
+
 const APARENCIA: Record<'Presente' | 'Falta justificada', { letra: string; cor: string; rotulo: string }> = {
   Presente: { letra: 'P', cor: 'var(--color-presente)', rotulo: 'presente' },
   'Falta justificada': { letra: 'J', cor: 'var(--color-justificada)', rotulo: 'falta justificada' },
@@ -39,27 +42,21 @@ export function Chamada() {
   const [naFila, setNaFila] = useState(() => pendentes().length);
   const [vendo, setVendo] = useState<Integrante | null>(null);
   const [resumoPronto, setResumoPronto] = useState<string | null>(null);
+  const [salvoEm, setSalvoEm] = useState<number | null>(null);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
-  const despachar = useCallback(
-    async (avisarAoTerminar: boolean) => {
-      if (!pendentes().length) return;
-      const r = await enviarFila((c) => api('presencas.salvar', { data: c.data, ramo: c.ramo, itens: c.itens }));
-      setNaFila(r.restantes);
-      if (r.erro && !(r.erro instanceof ErroApi && r.erro.codigo === 'SEM_REDE')) {
-        setErro(r.erro instanceof ErroApi ? r.erro.message : 'A planilha recusou a chamada guardada.');
-      } else if (r.enviadas && avisarAoTerminar) {
-        setAviso('Chamada salva e registrada na planilha.');
-      } else if (r.enviadas) {
-        setAviso(`${r.enviadas} ${r.enviadas === 1 ? 'chamada guardada foi enviada' : 'chamadas guardadas foram enviadas'}.`);
-      }
-    },
-    [api],
-  );
+  const despachar = useCallback(async () => {
+    if (!pendentes().length) return;
+    const r = await enviarFila((c) => api('presencas.salvar', { data: c.data, ramo: c.ramo, itens: c.itens }));
+    setNaFila(r.restantes);
+    if (r.erro && !(r.erro instanceof ErroApi && r.erro.codigo === 'SEM_REDE')) {
+      setErro(r.erro instanceof ErroApi ? r.erro.message : 'A planilha recusou a chamada guardada.');
+    }
+  }, [api]);
 
   useEffect(() => {
-    void despachar(false);
-    const aoVoltar = () => void despachar(false);
+    void despachar();
+    const aoVoltar = () => void despachar();
     window.addEventListener('online', aoVoltar);
     return () => window.removeEventListener('online', aoVoltar);
   }, [despachar]);
@@ -151,6 +148,7 @@ export function Chamada() {
 
   const alternar = (id: string) => {
     setAviso(null);
+    setSalvoEm(null);
     setResumoPronto(null);
     setTocado(true);
     const sentido = lerFeedback();
@@ -184,7 +182,8 @@ export function Chamada() {
     return { presentes, faltas: lista.length - presentes };
   }, [lista, marcas]);
 
-  const salvar = () => {
+  const salvar = useCallback(() => {
+    if (!lista.length) return;
     const itens = lista.map((i) => {
       const marca = marcas[i.id];
       return {
@@ -195,23 +194,44 @@ export function Chamada() {
       };
     });
 
-    // A chamada é guardada no aparelho e confirmada na hora; a planilha é
-    // atualizada em segundo plano, porque esperar por ela não ajuda ninguém
-    // no meio da atividade.
+    // Guarda no aparelho e manda para a planilha em segundo plano. O
+    // rascunho fica onde está: a chamada segue aberta e pode mudar.
     enfileirar({ data, ramo: ramoAtual, itens });
-    apagarRascunho(data, ramoAtual);
-    setTocado(false);
     setNaFila(pendentes().length);
     setErro(null);
-
-    const presentes = itens.filter((i) => i.status === 'Presente').length;
-    setAviso(`Chamada salva: ${presentes} presentes de ${itens.length}.`);
+    setSalvoEm(Date.now());
     setExistente({ data, ramo: ramoAtual, registros: {}, total: itens.length });
     setResumoPronto(textoDoResumo(data, ramoAtual, itens));
-    avisarSalvou(lerFeedback());
 
-    void despachar(true);
-  };
+    void despachar();
+  }, [data, ramoAtual, lista, marcas, despachar]);
+
+  // Marcar já confirma: a gravação sai sozinha pouco depois do último toque,
+  // para a chamada inteira virar uma escrita só em vez de uma por pessoa.
+  useEffect(() => {
+    if (!tocado || !lista.length) return;
+    const relogio = window.setTimeout(() => salvar(), ESPERA_ATE_GRAVAR);
+    return () => window.clearTimeout(relogio);
+  }, [tocado, marcas, lista.length, salvar]);
+
+  // Sair da tela ou esconder o app grava o que ainda não foi. Guardo a
+  // função numa referência: se dependesse dela, cada toque disparava uma
+  // gravação, em vez de uma só depois da pausa.
+  const ultimoSalvar = useRef(salvar);
+  const temPendente = useRef(false);
+  ultimoSalvar.current = salvar;
+  temPendente.current = tocado && !salvoEm;
+
+  useEffect(() => {
+    const aoEsconder = () => {
+      if (document.visibilityState === 'hidden' && temPendente.current) ultimoSalvar.current();
+    };
+    document.addEventListener('visibilitychange', aoEsconder);
+    return () => {
+      document.removeEventListener('visibilitychange', aoEsconder);
+      if (temPendente.current) ultimoSalvar.current();
+    };
+  }, []);
 
   if (carregandoIntegrantes) return <Carregando texto="Carregando o quadro do grupo" />;
   if (erroIntegrantes) return <Erro mensagem={erroIntegrantes} />;
@@ -278,27 +298,24 @@ export function Chamada() {
             <p className="min-w-0 font-display text-[15px] leading-tight font-[600]">
               {contagem.presentes}/{lista.length}{' '}
               <span className="font-sans text-[13px] font-normal text-muted">presentes</span>
-              {existente && existente.total > 0 ? (
-                <span className="block font-sans text-[11.5px] font-normal text-muted">chamada já registrada neste dia</span>
-              ) : null}
+              <span className="block font-sans text-[11.5px] font-normal text-muted">
+                {tocado && !salvoEm
+                  ? 'guardando…'
+                  : salvoEm || (existente && existente.total > 0)
+                    ? 'chamada salva'
+                    : 'marque e pronto, salva sozinho'}
+              </span>
             </p>
             {resumoPronto ? (
               <button
                 type="button"
                 onClick={() => void compartilhar(`Chamada ${ramoAtual}`, resumoPronto)}
-                className="shrink-0 whitespace-nowrap rounded-full border border-ouro px-4 py-2 text-[14px] font-semibold text-ouro"
+                className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto"
               >
+                <Icone nome="salvar" className="h-4.5 w-4.5" />
                 Compartilhar
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={salvar}
-              className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-ouro px-5 py-2 text-[15px] font-semibold text-preto"
-            >
-              <Icone nome="salvar" className="h-4.5 w-4.5" />
-              Salvar chamada
-            </button>
           </div>
         </div>
       ) : null}
