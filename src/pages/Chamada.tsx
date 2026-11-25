@@ -264,7 +264,7 @@ export function Chamada() {
 
       {lista.length > 0 ? (
         <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 pt-2 pb-2 backdrop-blur">
-          <div className="pb-2">
+          <div className="-mx-4 pb-2">
             <BarraRamos ramos={ramos} ativo={ramoAtual} aoEscolher={setRamoAtual} />
           </div>
 
