@@ -32,7 +32,6 @@ export function Chamada() {
   // chega do servidor não sobrescreve o que está na tela.
   const [tocado, setTocado] = useState(false);
   const [existente, setExistente] = useState<TipoChamada | null>(null);
-  const [buscando, setBuscando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -88,7 +87,6 @@ export function Chamada() {
   useEffect(() => {
     if (!data || !ramoAtual) return;
     let cancelado = false;
-    setBuscando(true);
     setErro(null);
     setAviso(null);
     api<TipoChamada>('presencas.chamada', { data, ramo: ramoAtual })
@@ -132,9 +130,6 @@ export function Chamada() {
         } else {
           setErro(e instanceof ErroApi ? e.message : 'Não foi possível buscar a chamada.');
         }
-      })
-      .finally(() => {
-        if (!cancelado) setBuscando(false);
       });
     return () => {
       cancelado = true;
@@ -259,16 +254,9 @@ export function Chamada() {
           })}
         </div>
 
-        {/* Carregar é detalhe: uma linha fina, sem empurrar a lista para baixo. */}
-        <div aria-hidden={!buscando} className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden">
-          {buscando ? <div className="h-full w-1/3 animate-[desliza_1.1s_ease-in-out_infinite] bg-ouro" /> : null}
-        </div>
-        <span className="sr-only" role="status">
-          {buscando ? 'Buscando a chamada deste dia' : ''}
-        </span>
       </div>
 
-      {existente && existente.total > 0 && !buscando ? (
+      {existente && existente.total > 0 ? (
         <p className="mx-4 mt-4 rounded-lg bg-card px-3.5 py-2.5 text-[13px] leading-relaxed text-muted">
           Já existe chamada deste dia para {ramoAtual}. Ao salvar, ela é substituída pela desta tela.
         </p>
@@ -276,7 +264,7 @@ export function Chamada() {
 
       {erro ? <Erro mensagem={erro} /> : null}
 
-      {!buscando && lista.length === 0 ? (
+      {lista.length === 0 ? (
         <Vazio
           titulo="Nenhum integrante ativo neste ramo"
           convite="Cadastre os integrantes ou confira o ramo na ficha de cada um, em Integrantes."

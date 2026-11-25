@@ -28,8 +28,9 @@ function mesesAtras(n: number): string {
 export function Relatorio() {
   useZoomLiberado();
   const api = useApi();
-  const { integrantes } = useDados();
+  const { integrantes, config } = useDados();
 
+  const [modo, setModo] = useState<'acompanhamento' | 'ranking'>('acompanhamento');
   const [de, setDe] = useState(mesesAtras(3));
   const [ate, setAte] = useState(hojeISO());
   const [filtroRamo, setFiltroRamo] = useState('');
@@ -64,15 +65,68 @@ export function Relatorio() {
     return Math.round(soma / resumo.pessoas.length);
   }, [resumo]);
 
-  const ordenadas = useMemo(
-    () => [...(resumo?.pessoas ?? [])].sort((a, b) => a.percentual - b.percentual || a.nome.localeCompare(b.nome, 'pt-BR')),
-    [resumo],
-  );
+  const ordenadas = useMemo(() => {
+    const lista = [...(resumo?.pessoas ?? [])];
+    return modo === 'ranking'
+      ? lista.sort((a, b) => b.percentual - a.percentual || b.presente - a.presente || a.nome.localeCompare(b.nome, 'pt-BR'))
+      : lista.sort((a, b) => a.percentual - b.percentual || a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [resumo, modo]);
+
+  const podio = modo === 'ranking' ? ordenadas.slice(0, 3) : [];
+  const temPremiacao = !!(config.rankingDe && config.rankingAte);
+  const noPeriodoDaPremiacao = temPremiacao && de === config.rankingDe && ate === config.rankingAte;
+
+  const usarPeriodoDaPremiacao = () => {
+    if (!temPremiacao) return;
+    setDe(config.rankingDe);
+    setAte(config.rankingAte);
+    setModo('ranking');
+  };
 
   return (
     <main className="pb-10">
       <div className="nao-imprime border-b border-line bg-card px-4 py-4">
-        <h1 className="font-display text-xl font-[600] tracking-tight">Relatório de presença</h1>
+        <h1 className="font-display text-xl font-[600] tracking-tight">
+          {modo === 'ranking' ? 'Ranking de assiduidade' : 'Relatório de presença'}
+        </h1>
+
+        <div className="mt-3 flex gap-2">
+          {([
+            ['acompanhamento', 'Acompanhamento'],
+            ['ranking', 'Ranking'],
+          ] as const).map(([valor, rotulo]) => (
+            <button
+              key={valor}
+              type="button"
+              onClick={() => setModo(valor)}
+              aria-pressed={modo === valor}
+              className="flex-1 rounded-full py-2 text-[14px] font-semibold"
+              style={
+                modo === valor
+                  ? { background: 'var(--color-ouro)', color: 'var(--color-preto)' }
+                  : { boxShadow: 'inset 0 0 0 1.5px var(--color-line)' }
+              }
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
+        {modo === 'ranking' && temPremiacao && !noPeriodoDaPremiacao ? (
+          <button type="button" onClick={usarPeriodoDaPremiacao} className="mt-3 w-full rounded-lg border border-ouro/50 py-2 text-[13.5px] font-semibold text-ouro">
+            Ver o período da premiação ({formatar(config.rankingDe)} a {formatar(config.rankingAte)})
+          </button>
+        ) : null}
+
+        {modo === 'ranking' && noPeriodoDaPremiacao ? (
+          <p className="mt-3 text-[13px] text-ouro">Período da premiação definido pelo grupo.</p>
+        ) : null}
+
+        {modo === 'ranking' && !temPremiacao ? (
+          <p className="mt-3 text-[13px] leading-relaxed text-muted">
+            Um administrador pode fixar o período da premiação em Conta, e aí todos os chefes veem o mesmo recorte.
+          </p>
+        ) : null}
 
         <div className="mt-3 flex gap-3">
           <label className="flex-1">
@@ -108,7 +162,7 @@ export function Relatorio() {
         <>
           <section className="px-4 pt-5">
             <h2 className="hidden font-display text-lg font-[700] print:block">
-              Presença de {formatar(de)} a {formatar(ate)}
+              {modo === 'ranking' ? 'Ranking de assiduidade' : 'Presença'} de {formatar(de)} a {formatar(ate)}
               {filtroRamo ? ` · ${filtroRamo}` : ''}
             </h2>
             <div className="flex gap-3">
@@ -117,16 +171,54 @@ export function Relatorio() {
               <Cartao numero={String(resumo.pessoas.length)} rotulo="pessoas" />
             </div>
             <p className="nao-imprime mt-3 text-[13px] leading-relaxed text-muted">
-              Em ordem de menor presença — quem precisa de atenção aparece primeiro.
+              {modo === 'ranking'
+                ? 'Em ordem de maior presença. O percentual compara cada um com as chamadas do seu ramo, então quem entrou depois não fica em desvantagem.'
+                : 'Em ordem de menor presença — quem precisa de atenção aparece primeiro.'}
             </p>
           </section>
 
-          <ul className="mt-4">
-            {ordenadas.map((p) => {
+          {podio.length ? (
+            <ol className="mt-4 px-4" aria-label="Três primeiros colocados">
+              {podio.map((p, i) => {
+                const r = corDoRamo(p.ramo);
+                const medalhas = ['1º', '2º', '3º'];
+                return (
+                  <li
+                    key={(p.idIntegrante || p.nome) + p.ramo}
+                    className="mb-2 flex items-center gap-3.5 rounded-xl px-4 py-3.5"
+                    style={{
+                      background: i === 0 ? 'color-mix(in srgb, var(--color-ouro) 20%, var(--color-card))' : 'var(--color-card)',
+                      boxShadow: i === 0 ? 'inset 0 0 0 1.5px var(--color-ouro)' : 'none',
+                    }}
+                  >
+                    <span
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full font-display text-[15px] font-[800]"
+                      style={{ background: i === 0 ? 'var(--color-ouro)' : 'var(--color-card-alto)', color: i === 0 ? 'var(--color-preto)' : 'var(--color-texto)' }}
+                    >
+                      {medalhas[i]}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[16px] font-[700]">{p.nome}</span>
+                      <span className="block text-[12.5px]" style={{ color: r.cor }}>
+                        {p.ramo} · {p.presente} de {p.total} chamadas
+                      </span>
+                    </span>
+                    <span className="font-display text-[22px] font-[800] text-ouro">{p.percentual}%</span>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : null}
+
+          <ul className={podio.length ? 'mt-3' : 'mt-4'}>
+            {ordenadas.slice(podio.length).map((p, i) => {
               const r = corDoRamo(p.ramo);
               return (
                 <li key={(p.idIntegrante || p.nome) + p.ramo} className="border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${r.cor}` }}>
                   <div className="flex items-baseline gap-3">
+                    {modo === 'ranking' ? (
+                      <span className="w-7 shrink-0 font-display text-[14px] font-[700] text-muted">{i + podio.length + 1}º</span>
+                    ) : null}
                     <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{p.nome}</span>
                     <span className="font-display text-[16px] font-[700]" style={{ color: p.percentual >= 75 ? 'var(--color-presente)' : p.percentual >= 50 ? 'var(--color-justificada)' : 'var(--color-falta)' }}>
                       {p.percentual}%
@@ -145,7 +237,7 @@ export function Relatorio() {
 
           <div className="nao-imprime px-4 pt-6">
             <button type="button" onClick={() => window.print()} className="w-full rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto">
-              Imprimir ou salvar em PDF
+              {modo === 'ranking' ? 'Imprimir o ranking ou salvar em PDF' : 'Imprimir ou salvar em PDF'}
             </button>
             <p className="mt-2 text-center text-[12.5px] text-muted">
               No celular, escolha "Salvar como PDF" no destino da impressão.

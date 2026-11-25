@@ -40,6 +40,15 @@ export function Conta() {
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
+  const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string }) => {
+    setErro(null);
+    try {
+      await salvarConfig(mudanca);
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar o período.');
+    }
+  };
+
   const alternarJustificativa = async (ligada: boolean) => {
     setSalvandoConfig(true);
     setErro(null);
@@ -150,6 +159,33 @@ export function Conta() {
               </span>
             </span>
           </label>
+
+          <div className="mt-4 border-t border-line pt-3.5">
+            <p className="text-[14px] font-medium">Período da premiação</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">
+              É o intervalo que o ranking de assiduidade mostra para todos os chefes.
+            </p>
+            <div className="mt-2.5 flex gap-3">
+              <label className="flex-1">
+                <span className="text-[12.5px] text-muted">De</span>
+                <input
+                  type="date"
+                  value={config.rankingDe ?? ''}
+                  onChange={(e) => void salvarPeriodo({ rankingDe: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[14px]"
+                />
+              </label>
+              <label className="flex-1">
+                <span className="text-[12.5px] text-muted">Até</span>
+                <input
+                  type="date"
+                  value={config.rankingAte ?? ''}
+                  onChange={(e) => void salvarPeriodo({ rankingAte: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[14px]"
+                />
+              </label>
+            </div>
+          </div>
         </section>
       ) : null}
 

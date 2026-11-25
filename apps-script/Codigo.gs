@@ -173,15 +173,31 @@ function lerConfig_() {
   const props = PropertiesService.getScriptProperties();
   return {
     justificativaAtiva: props.getProperty('JUSTIFICATIVA_ATIVA') === 'sim',
+    // Período que vale para a premiação de assiduidade.
+    rankingDe: props.getProperty('RANKING_DE') || '',
+    rankingAte: props.getProperty('RANKING_ATE') || '',
   };
 }
 
 function salvarConfig_(usuario, payload) {
   if (usuario.nivel !== 'admin') throw new Error('Só administradores mudam as configurações.');
   const props = PropertiesService.getScriptProperties();
-  props.setProperty('JUSTIFICATIVA_ATIVA', payload.justificativaAtiva ? 'sim' : 'nao');
-  registrarLog_(usuario, 'Configuração', 'Edição',
-    'Justificativa de falta ' + (payload.justificativaAtiva ? 'ativada' : 'desativada') + '.');
+  const mudancas = [];
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'justificativaAtiva')) {
+    props.setProperty('JUSTIFICATIVA_ATIVA', payload.justificativaAtiva ? 'sim' : 'nao');
+    mudancas.push('justificativa de falta ' + (payload.justificativaAtiva ? 'ativada' : 'desativada'));
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'rankingDe')) {
+    props.setProperty('RANKING_DE', String(payload.rankingDe || ''));
+    mudancas.push('início do ranking em ' + (payload.rankingDe || 'sem data'));
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'rankingAte')) {
+    props.setProperty('RANKING_ATE', String(payload.rankingAte || ''));
+    mudancas.push('fim do ranking em ' + (payload.rankingAte || 'sem data'));
+  }
+
+  if (mudancas.length) registrarLog_(usuario, 'Configuração', 'Edição', mudancas.join('; ') + '.');
   return lerConfig_();
 }
 
