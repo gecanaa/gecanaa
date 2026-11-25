@@ -16,7 +16,7 @@ const ABAS = [
 export function Casca() {
   const topo = useRef<HTMLElement>(null);
   const { usuario } = useAuth();
-  const { gravacoesNaFila, erroDeEnvio, sincronizar } = useDados();
+  const { erroDeEnvio, sincronizar } = useDados();
   const cuidaDoCaixa = usuario?.nivel === 'admin' || usuario?.nivel === 'financeiro';
   const abas = ABAS.filter((a) => !('soTesouraria' in a && a.soTesouraria) || cuidaDoCaixa);
 
@@ -44,10 +44,6 @@ export function Casca() {
           <button type="button" onClick={() => void sincronizar()} className="font-semibold underline">
             Tentar de novo
           </button>
-        </p>
-      ) : gravacoesNaFila > 0 ? (
-        <p className="nao-imprime border-b border-line bg-card px-4 py-1.5 text-[12.5px] text-muted" role="status">
-          {gravacoesNaFila === 1 ? 'Enviando uma alteração para a planilha…' : `Enviando ${gravacoesNaFila} alterações para a planilha…`}
         </p>
       ) : null}
 

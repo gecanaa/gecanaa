@@ -4,7 +4,7 @@ import { ErroApi } from '../lib/api';
 import { hojeISO, porExtenso, useDados } from '../lib/dados';
 import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { Avatar, Carregando, Erro, Vazio } from '../components/Estados';
-import { BarraRamos } from '../components/BarraRamos';
+import { BarraRamosFixa } from '../components/BarraRamos';
 import { ModalIntegrante } from '../components/ModalIntegrante';
 import { enfileirar, enviarFila, gravarRascunho, lerRascunho, pendenteDe, pendentes } from '../lib/local';
 import { avisarDesmarcou, avisarMarcou, lerFeedback } from '../lib/feedback';
@@ -36,19 +36,15 @@ export function Chamada() {
   // "tocado" marca que o chefe já mexeu nesta chamada: a partir daí, o que
   // chega do servidor não sobrescreve o que está na tela.
   const [tocado, setTocado] = useState(false);
-  const [existente, setExistente] = useState<TipoChamada | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [naFila, setNaFila] = useState(() => pendentes().length);
   const [vendo, setVendo] = useState<Integrante | null>(null);
   const [resumoPronto, setResumoPronto] = useState<string | null>(null);
-  const [salvoEm, setSalvoEm] = useState<number | null>(null);
+  const [gravadoNaPlanilha, setGravadoNaPlanilha] = useState(false);
 
   // Tenta esvaziar a fila ao abrir e sempre que a internet voltar.
   const despachar = useCallback(async () => {
     if (!pendentes().length) return;
     const r = await enviarFila((c) => api('presencas.salvar', { data: c.data, ramo: c.ramo, itens: c.itens }));
-    setNaFila(r.restantes);
     if (r.erro && !(r.erro instanceof ErroApi && r.erro.codigo === 'SEM_REDE')) {
       setErro(r.erro instanceof ErroApi ? r.erro.message : 'A planilha recusou a chamada guardada.');
     }
@@ -98,11 +94,9 @@ export function Chamada() {
     if (!data || !ramoAtual) return;
     let cancelado = false;
     setErro(null);
-    setAviso(null);
     api<TipoChamada>('presencas.chamada', { data, ramo: ramoAtual })
       .then((c) => {
         if (cancelado) return;
-        setExistente(c);
         const iniciais: Record<string, Marca> = {};
         Object.values(c.registros).forEach((r) => {
           const alvo =
@@ -135,7 +129,6 @@ export function Chamada() {
       .catch((e) => {
         if (cancelado) return;
         if (e instanceof ErroApi && e.codigo === 'SEM_REDE') {
-          setExistente(null);
           setMarcas({});
         } else {
           setErro(e instanceof ErroApi ? e.message : 'Não foi possível buscar a chamada.');
@@ -147,9 +140,7 @@ export function Chamada() {
   }, [api, data, ramoAtual, lista]);
 
   const alternar = (id: string) => {
-    setAviso(null);
-    setSalvoEm(null);
-    setResumoPronto(null);
+    setGravadoNaPlanilha(false);
     setTocado(true);
     const sentido = lerFeedback();
     setMarcas((atual) => {
@@ -170,7 +161,6 @@ export function Chamada() {
   };
 
   const todosPresentes = () => {
-    setAviso(null);
     setTocado(true);
     avisarMarcou(lerFeedback());
     setMarcas(Object.fromEntries(lista.map((i) => [i.id, { status: 'Presente', justificativa: '' } as Marca])));
@@ -197,13 +187,11 @@ export function Chamada() {
     // Guarda no aparelho e manda para a planilha em segundo plano. O
     // rascunho fica onde está: a chamada segue aberta e pode mudar.
     enfileirar({ data, ramo: ramoAtual, itens });
-    setNaFila(pendentes().length);
     setErro(null);
-    setSalvoEm(Date.now());
-    setExistente({ data, ramo: ramoAtual, registros: {}, total: itens.length });
+
     setResumoPronto(textoDoResumo(data, ramoAtual, itens));
 
-    void despachar();
+    void despachar().then(() => setGravadoNaPlanilha(!pendentes().length));
   }, [data, ramoAtual, lista, marcas, despachar]);
 
   // Marcar já confirma: a gravação sai sozinha pouco depois do último toque,
@@ -220,7 +208,7 @@ export function Chamada() {
   const ultimoSalvar = useRef(salvar);
   const temPendente = useRef(false);
   ultimoSalvar.current = salvar;
-  temPendente.current = tocado && !salvoEm;
+  temPendente.current = tocado && !gravadoNaPlanilha;
 
   useEffect(() => {
     const aoEsconder = () => {
@@ -237,11 +225,18 @@ export function Chamada() {
   if (erroIntegrantes) return <Erro mensagem={erroIntegrantes} />;
 
   return (
-    <main className="pb-40">
+    <main className="pb-28">
       {/* Título e data por extenso rolam junto com a lista. */}
-      <div className="px-4 pt-4 pb-3">
-        <h1 className="font-display text-xl font-[600] tracking-tight">Chamada</h1>
-        <p className="mt-1 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
+      <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-[600] tracking-tight">Chamada</h1>
+          <p className="mt-1 text-[13px] text-muted first-letter:uppercase">{porExtenso(data)}</p>
+        </div>
+        {lista.length ? (
+          <button type="button" onClick={todosPresentes} className="shrink-0 pt-1 text-[13px] font-semibold text-ouro underline">
+            Todos presentes
+          </button>
+        ) : null}
       </div>
 
       {/* Esta barra fica. Altura sempre a mesma, para a lista nunca pular. */}
@@ -254,9 +249,22 @@ export function Chamada() {
           className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-[14px]"
         />
         {lista.length ? (
-          <button type="button" onClick={todosPresentes} className="shrink-0 text-[13px] font-semibold text-ouro underline">
-            Todos presentes
-          </button>
+          <>
+            <p className="shrink-0 font-display text-[15px] font-[700]">
+              {contagem.presentes}
+              <span className="font-sans text-[13px] font-normal text-muted">/{lista.length}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => resumoPronto && void compartilhar(`Chamada ${ramoAtual}`, resumoPronto)}
+              disabled={!gravadoNaPlanilha || !resumoPronto}
+              aria-label="Compartilhar o resumo da chamada"
+              title={gravadoNaPlanilha ? 'Compartilhar o resumo da chamada' : 'Disponível assim que a chamada chegar à planilha'}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ouro text-preto transition-opacity disabled:bg-transparent disabled:text-muted disabled:opacity-60 disabled:shadow-[inset_0_0_0_1.5px_var(--color-line)]"
+            >
+              <Icone nome="compartilhar" className="h-4.5 w-4.5" />
+            </button>
+          </>
         ) : null}
       </div>
 
@@ -282,43 +290,7 @@ export function Chamada() {
         </>
       ) : null}
 
-      {lista.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-4 pt-2 pb-2 backdrop-blur">
-          <div className="-mx-4 pb-2">
-            <BarraRamos ramos={ramos} ativo={ramoAtual} aoEscolher={setRamoAtual} />
-          </div>
-
-          {aviso ? <p className="pb-1.5 text-[13px] font-medium text-ouro" role="status">{aviso}</p> : null}
-          {naFila > 0 && !aviso ? (
-            <p className="pb-1.5 text-[13px] font-medium text-justificada" role="status">
-              {naFila === 1 ? '1 chamada guardada no aparelho' : `${naFila} chamadas guardadas no aparelho`}, aguardando internet.
-            </p>
-          ) : null}
-          <div className="flex items-center gap-3">
-            <p className="min-w-0 font-display text-[15px] leading-tight font-[600]">
-              {contagem.presentes}/{lista.length}{' '}
-              <span className="font-sans text-[13px] font-normal text-muted">presentes</span>
-              <span className="block font-sans text-[11.5px] font-normal text-muted">
-                {tocado && !salvoEm
-                  ? 'guardando…'
-                  : salvoEm || (existente && existente.total > 0)
-                    ? 'chamada salva'
-                    : 'marque e pronto, salva sozinho'}
-              </span>
-            </p>
-            {resumoPronto ? (
-              <button
-                type="button"
-                onClick={() => void compartilhar(`Chamada ${ramoAtual}`, resumoPronto)}
-                className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-ouro px-4 py-2 text-[14px] font-semibold text-preto"
-              >
-                <Icone nome="salvar" className="h-4.5 w-4.5" />
-                Compartilhar
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {lista.length > 0 ? <BarraRamosFixa ramos={ramos} ativo={ramoAtual} aoEscolher={setRamoAtual} /> : null}
 
       {vendo ? <ModalIntegrante integrante={vendo} aoFechar={() => setVendo(null)} /> : null}
     </main>
