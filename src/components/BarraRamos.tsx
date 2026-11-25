@@ -1,3 +1,4 @@
+import { IconeDoRamo } from './IconesRamo';
 import { ramo as corDoRamo } from '../lib/ramos';
 
 type Opcao = { valor: string; rotulo: string; curto: string; cor: string };
@@ -42,14 +43,14 @@ export function BarraRamos({
           >
             <span
               aria-hidden="true"
-              className="grid h-9 w-9 place-items-center rounded-full font-display text-[12.5px] font-[700]"
+              className="grid h-9 w-9 place-items-center rounded-full"
               style={
                 escolhido
                   ? { background: o.cor, color: 'var(--color-preto)' }
                   : { color: o.cor, boxShadow: `inset 0 0 0 1.5px ${o.cor}` }
               }
             >
-              {o.curto}
+              <IconeDoRamo ramo={o.valor} todos={!o.valor && !!todos} className="h-5 w-5" />
             </span>
             <span
               className={`w-full truncate text-center text-[10px] leading-tight ${
