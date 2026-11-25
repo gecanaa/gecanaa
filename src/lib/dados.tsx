@@ -12,7 +12,7 @@ const CACHE_CONFIG = 'sge:config';
 type Contexto = {
   integrantes: Integrante[];
   config: Config;
-  salvarConfig: (c: Partial<Config>) => Promise<void>;
+  salvarConfig: (c: Partial<Config>) => Promise<Config>;
   carregando: boolean;
   erro: string | null;
   recarregar: () => Promise<void>;
@@ -87,7 +87,10 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
 
   const salvarConfig = useCallback(
     async (mudanca: Partial<Config>) => {
-      setConfig(await api<Config>('config.salvar', mudanca));
+      const salva = await api<Config>('config.salvar', mudanca);
+      setConfig(salva);
+      gravar(CACHE_CONFIG, salva);
+      return salva;
     },
     [api],
   );

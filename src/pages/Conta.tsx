@@ -38,12 +38,16 @@ export function Conta() {
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [sentido, setSentido] = useState<Feedback>(lerFeedback);
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
+  const [periodoNaoSalvou, setPeriodoNaoSalvou] = useState(false);
   const ativos = integrantes.filter((i) => i.status === 'Ativo').length;
 
   const salvarPeriodo = async (mudanca: { rankingDe?: string; rankingAte?: string }) => {
     setErro(null);
     try {
-      await salvarConfig(mudanca);
+      // Manda a justificativa junto: num Apps Script anterior a esta função,
+      // salvar só o período desligaria a justificativa sem querer.
+      const salva = await salvarConfig({ justificativaAtiva: config.justificativaAtiva, ...mudanca });
+      return salva;
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível salvar o período.');
     }
@@ -165,13 +169,24 @@ export function Conta() {
             <p className="mt-1 text-[13px] leading-relaxed text-muted">
               É o intervalo que o ranking de assiduidade mostra para todos os chefes.
             </p>
+            {periodoNaoSalvou ? (
+              <p className="mt-2 rounded-lg border-l-4 border-justificada bg-card-alto px-3 py-2 text-[13px] leading-relaxed">
+                O Apps Script publicado ainda não guarda o período. Cole a versão atual do
+                <code className="px-1">Codigo.gs</code> e reimplante; até lá, escolha as datas direto na tela do ranking.
+              </p>
+            ) : null}
             <div className="mt-2.5 flex gap-3">
               <label className="flex-1">
                 <span className="text-[12.5px] text-muted">De</span>
                 <input
                   type="date"
                   value={config.rankingDe ?? ''}
-                  onChange={(e) => void salvarPeriodo({ rankingDe: e.target.value })}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    void salvarPeriodo({ rankingDe: valor }).then((salva) =>
+                      setPeriodoNaoSalvou(!!salva && salva.rankingDe !== valor),
+                    );
+                  }}
                   className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[14px]"
                 />
               </label>
@@ -180,7 +195,12 @@ export function Conta() {
                 <input
                   type="date"
                   value={config.rankingAte ?? ''}
-                  onChange={(e) => void salvarPeriodo({ rankingAte: e.target.value })}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    void salvarPeriodo({ rankingAte: valor }).then((salva) =>
+                      setPeriodoNaoSalvou(!!salva && salva.rankingAte !== valor),
+                    );
+                  }}
                   className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-[14px]"
                 />
               </label>
