@@ -31,20 +31,46 @@ type Caixa = {
   categorias: { tipo: string; categoria: string; total: number }[];
 };
 
+type Pagamento = {
+  id: string;
+  data: string;
+  valor: number;
+  metodo: string;
+  comprovante: string;
+  observacao: string;
+  registrado: string;
+};
+
+type Pessoa = {
+  id: string;
+  nome: string;
+  ramo: string;
+  plano: string;
+  esperado: number;
+  pago: number;
+  situacao: string;
+  pagamentos?: Pagamento[];
+};
+
 type Mensalidades = {
   mes: string;
   mensalidadeCheia: number;
   recebido: number;
   esperado: number;
-  pessoas: { id: string; nome: string; ramo: string; plano: string; esperado: number; pago: number; situacao: string }[];
+  pessoas: Pessoa[];
 };
 
 const CATEGORIAS_ENTRADA = ['Mensalidade', 'Lojinha/Bazar', 'Evento', 'Rifa', 'Doação', 'Outros'];
 const CATEGORIAS_SAIDA = ['Material', 'Alimentação', 'Manutenção', 'Taxa UEB', 'Transporte', 'Outros'];
 const METODOS = ['Transferência PIX', 'Dinheiro', 'Cartão', 'Outro'];
 
-export const moeda = (v: number) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
+/** Resposta incompleta do servidor não pode derrubar a tela inteira. */
+export const moeda = (v: number | undefined | null) =>
+  (Number.isFinite(Number(v)) ? Number(v) : 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+  });
 
 const mesAtual = () => hojeISO().slice(0, 7);
 const primeiroDiaDoMes = () => `${mesAtual()}-01`;
@@ -125,6 +151,9 @@ function Caixa_({ api }: { api: Api }) {
     void carregar();
   }, [carregar]);
 
+  const lancamentos = caixa?.lancamentos ?? [];
+  const categorias = caixa?.categorias ?? [];
+
   return (
     <>
       <div className="flex gap-3 px-4 pt-4">
@@ -159,7 +188,7 @@ function Caixa_({ api }: { api: Api }) {
 
           <div className="flex items-baseline justify-between gap-3 px-4 pt-5 pb-1">
             <p className="text-[13px] text-muted">
-              {caixa.lancamentos.length} {caixa.lancamentos.length === 1 ? 'lançamento' : 'lançamentos'}
+              {lancamentos.length} {lancamentos.length === 1 ? 'lançamento' : 'lançamentos'}
             </p>
             <button
               type="button"
@@ -170,11 +199,11 @@ function Caixa_({ api }: { api: Api }) {
             </button>
           </div>
 
-          {caixa.lancamentos.length === 0 ? (
+          {lancamentos.length === 0 ? (
             <Vazio titulo="Nada lançado neste período" convite="Mude as datas ou registre o primeiro lançamento." />
           ) : (
             <ul>
-              {caixa.lancamentos.map((l) => {
+              {lancamentos.map((l) => {
                 const saida = l.tipo.toLowerCase().startsWith('sa');
                 return (
                   <li key={l.id} className="border-b border-line">
@@ -197,11 +226,11 @@ function Caixa_({ api }: { api: Api }) {
             </ul>
           )}
 
-          {caixa.categorias.length ? (
+          {categorias.length ? (
             <section className="px-4 pt-6">
               <h2 className="font-display text-[15px] font-[700]">Por categoria</h2>
               <ul className="mt-2 space-y-1.5 text-[14px]">
-                {caixa.categorias.map((c) => (
+                {categorias.map((c) => (
                   <li key={c.tipo + c.categoria} className="flex items-baseline gap-3">
                     <span className="min-w-0 flex-1 truncate">
                       {c.categoria} <span className="text-[12px] text-muted">{c.tipo}</span>
@@ -512,12 +541,13 @@ function FormularioLancamento({
 }
 
 function MensalidadesTela({ api }: { api: Api }) {
+  const { integrantes } = useDados();
   const [mes, setMes] = useState(mesAtual());
   const [dados, setDados] = useState<Mensalidades | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [soDevendo, setSoDevendo] = useState(false);
-  const [pagando, setPagando] = useState<Mensalidades['pessoas'][number] | null>(null);
+  const [lancando, setLancando] = useState<Partial<Lancamento> | null>(null);
 
   const carregar = useCallback(async () => {
     setErro(null);
@@ -539,27 +569,20 @@ function MensalidadesTela({ api }: { api: Api }) {
     [dados, soDevendo],
   );
 
-  const registrarPagamento = async (pessoa: Mensalidades['pessoas'][number]) => {
-    setPagando(pessoa);
-    try {
-      await api('financeiro.salvar', {
-        data: hojeISO(),
-        nome: pessoa.nome,
-        idIntegrante: pessoa.id,
-        tipo: 'Entrada',
-        categoria: 'Mensalidade',
-        mes,
-        valor: pessoa.esperado - pessoa.pago,
-        metodo: 'Transferência PIX',
-        observacao: `Mensalidade ${nomeDoMes(mes)}`,
-      });
-      await carregar();
-    } catch (e) {
-      setErro(e instanceof ErroApi ? e.message : 'Não foi possível registrar o pagamento.');
-    } finally {
-      setPagando(null);
-    }
-  };
+  // Abre o lançamento já preenchido: o chefe ainda escolhe forma de
+  // pagamento, anexa o comprovante e ajusta o valor, se for o caso.
+  const abrirRecebimento = (pessoa: Pessoa) =>
+    setLancando({
+      data: hojeISO(),
+      nome: pessoa.nome,
+      idIntegrante: pessoa.id,
+      tipo: 'Entrada',
+      categoria: 'Mensalidade',
+      mes,
+      valor: Math.max(0, pessoa.esperado - pessoa.pago),
+      metodo: 'Transferência PIX',
+      observacao: `Mensalidade ${nomeDoMes(mes)}`,
+    });
 
   return (
     <>
@@ -618,36 +641,76 @@ function MensalidadesTela({ api }: { api: Api }) {
                   : p.situacao === 'Parcial' ? 'var(--color-justificada)'
                   : p.situacao === 'Isento' || p.situacao === 'Sem valor' ? 'var(--color-muted)'
                   : 'var(--color-falta)';
+                const pagamentos = p.pagamentos ?? [];
                 return (
-                  <li key={p.id} className="flex items-center gap-3 border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${corDoRamo(p.ramo).cor}` }}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium">{p.nome}</span>
-                      <span className="block text-[12.5px] text-muted">
-                        {p.plano}
-                        {p.situacao === 'Sem valor' ? ' · valor não definido' : ` · previsto ${moeda(p.esperado)}`}
-                        {p.pago > 0 ? ` · pago ${moeda(p.pago)}` : ''}
+                  <li key={p.id} className="border-b border-line px-4 py-3" style={{ borderLeft: `4px solid ${corDoRamo(p.ramo).cor}` }}>
+                    <div className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-medium">{p.nome}</span>
+                        <span className="block text-[12.5px] text-muted">
+                          {p.plano}
+                          {p.situacao === 'Sem valor' ? ' · valor não definido' : ` · previsto ${moeda(p.esperado)}`}
+                          {p.pago > 0 ? ` · pago ${moeda(p.pago)}` : ''}
+                        </span>
                       </span>
-                    </span>
-                    {p.situacao === 'Pago' || p.situacao === 'Isento' || p.situacao === 'Sem valor' ? (
-                      <span className="shrink-0 text-[13px] font-semibold" style={{ color: cor }}>
-                        {p.situacao}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void registrarPagamento(p)}
-                        disabled={!!pagando || p.esperado <= p.pago}
-                        className="shrink-0 rounded-full bg-ouro px-3.5 py-1.5 text-[13px] font-semibold text-preto disabled:opacity-60"
-                      >
-                        {pagando?.id === p.id ? 'Registrando' : `Receber ${moeda(p.esperado - p.pago)}`}
-                      </button>
-                    )}
+                      {p.situacao === 'Isento' || p.situacao === 'Sem valor' ? (
+                        <span className="shrink-0 text-[13px] font-semibold" style={{ color: cor }}>
+                          {p.situacao}
+                        </span>
+                      ) : p.situacao === 'Pago' ? (
+                        <span className="shrink-0 text-[13px] font-semibold" style={{ color: cor }}>
+                          Pago
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => abrirRecebimento(p)}
+                          className="shrink-0 rounded-full bg-ouro px-3.5 py-1.5 text-[13px] font-semibold text-preto"
+                        >
+                          Receber {moeda(p.esperado - p.pago)}
+                        </button>
+                      )}
+                    </div>
+
+                    {pagamentos.length ? (
+                      <ul className="mt-2 space-y-1">
+                        {pagamentos.map((pg) => (
+                          <li key={pg.id}>
+                            <button
+                              type="button"
+                              onClick={() => setLancando({ ...pg, nome: p.nome, idIntegrante: p.id, tipo: 'Entrada', categoria: 'Mensalidade', mes })}
+                              className="flex w-full items-center gap-2 rounded-lg bg-card-alto px-3 py-2 text-left text-[12.5px]"
+                            >
+                              <span className="text-presente">{moeda(pg.valor)}</span>
+                              <span className="min-w-0 flex-1 truncate text-muted">
+                                {formatarData(pg.data)} · {pg.metodo || 'forma não informada'}
+                                {pg.registrado ? ` · ${pg.registrado}` : ''}
+                              </span>
+                              {pg.comprovante ? <span aria-label="tem comprovante">📎</span> : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </li>
                 );
               })}
             </ul>
           )}
         </>
+      ) : null}
+
+      {lancando ? (
+        <FormularioLancamento
+          api={api}
+          integrantes={integrantes}
+          inicial={lancando}
+          aoFechar={() => setLancando(null)}
+          aoSalvar={() => {
+            setLancando(null);
+            void carregar();
+          }}
+        />
       ) : null}
     </>
   );

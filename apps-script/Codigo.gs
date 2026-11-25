@@ -721,10 +721,16 @@ function mensalidadesDoMes_(usuario, payload) {
           (!l.idIntegrante && normalizarNome_(l.nome) === normalizarNome_(i.nome));
       });
       const pago = pagos.reduce(function (t, l) { return t + l.valor; }, 0);
+      const detalhes = pagos.map(function (l) {
+        return {
+          id: l.id, data: l.data, valor: l.valor, metodo: l.metodo,
+          comprovante: l.comprovante, observacao: l.observacao, registrado: l.registrado,
+        };
+      });
       const isento = String(i.planoFinanceiro || '').toLowerCase().indexOf('isent') >= 0;
       return {
         id: i.id, nome: i.nome, ramo: i.ramo, plano: i.planoFinanceiro || 'Integral',
-        esperado: esperado, pago: pago,
+        esperado: esperado, pago: pago, pagamentos: detalhes,
         // Sem o valor cheio configurado, ninguém é isento: o sistema é que
         // ainda não sabe quanto cobrar.
         situacao: isento ? 'Isento'
