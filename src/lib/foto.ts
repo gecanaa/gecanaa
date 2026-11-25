@@ -1,10 +1,11 @@
 /**
- * Reduz a foto tirada no celular antes de enviar: 600px no maior lado já
- * basta para o avatar e para a ficha impressa, e sobe rápido em 4G fraco.
+ * Reduz a imagem antes de enviar. 600px bastam para o avatar e para a ficha
+ * impressa; um comprovante precisa de mais, para o texto do recibo ficar
+ * legível. De todo jeito sobe rápido em 4G fraco.
  */
-const LADO_MAXIMO = 600;
+const LADO_PADRAO = 600;
 
-export function reduzir(arquivo: File): Promise<string> {
+export function reduzir(arquivo: File, ladoMaximo = LADO_PADRAO): Promise<string> {
   return new Promise((resolve, reject) => {
     const leitor = new FileReader();
     leitor.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
@@ -12,7 +13,7 @@ export function reduzir(arquivo: File): Promise<string> {
       const img = new Image();
       img.onerror = () => reject(new Error('Essa imagem não pôde ser aberta.'));
       img.onload = () => {
-        const escala = Math.min(1, LADO_MAXIMO / Math.max(img.width, img.height));
+        const escala = Math.min(1, ladoMaximo / Math.max(img.width, img.height));
         const largura = Math.round(img.width * escala);
         const altura = Math.round(img.height * escala);
         const tela = document.createElement('canvas');

@@ -15,6 +15,8 @@ type Pessoa = {
   justificada: number;
   total: number;
   percentual: number;
+  faltasSeguidas?: number;
+  ultimaPresenca?: string;
 };
 
 type Resumo = { chamadas: number; pessoas: Pessoa[] };
@@ -73,6 +75,16 @@ export function Relatorio() {
   }, [resumo, modo]);
 
   const podio = modo === 'ranking' ? ordenadas.slice(0, 3) : [];
+
+  // Quem já soma três faltas, ou faltou nas três últimas seguidas, precisa de
+  // um telefonema antes de virar desligamento.
+  const emAlerta = useMemo(
+    () =>
+      (resumo?.pessoas ?? [])
+        .filter((p) => p.falta >= 3 || (p.faltasSeguidas ?? 0) >= 3)
+        .sort((a, b) => (b.faltasSeguidas ?? 0) - (a.faltasSeguidas ?? 0) || b.falta - a.falta),
+    [resumo],
+  );
   const temPremiacao = !!(config.rankingDe && config.rankingAte);
   const noPeriodoDaPremiacao = temPremiacao && de === config.rankingDe && ate === config.rankingAte;
 
@@ -210,6 +222,28 @@ export function Relatorio() {
             </ol>
           ) : null}
 
+          {modo === 'acompanhamento' && emAlerta.length ? (
+            <section className="mx-4 mt-5 rounded-xl border-l-4 border-falta bg-card px-4 py-3.5">
+              <h2 className="font-display text-[15px] font-[700]">
+                Precisam de atenção <span className="font-sans text-[13px] font-normal text-muted">({emAlerta.length})</span>
+              </h2>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+                Três faltas no período, ou três chamadas seguidas sem aparecer.
+              </p>
+              <ul className="mt-2.5 space-y-2">
+                {emAlerta.map((p) => (
+                  <li key={(p.idIntegrante || p.nome) + p.ramo} className="flex items-baseline gap-3 text-[14px]">
+                    <span className="min-w-0 flex-1 truncate">{p.nome}</span>
+                    <span className="shrink-0 text-[12.5px] text-muted">
+                      {(p.faltasSeguidas ?? 0) >= 3 ? `${p.faltasSeguidas} seguidas` : `${p.falta} faltas`}
+                      {p.ultimaPresenca ? ` · veio em ${formatar(p.ultimaPresenca)}` : ' · nunca veio'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <ul className={podio.length ? 'mt-3' : 'mt-4'}>
             {ordenadas.slice(podio.length).map((p, i) => {
               const r = corDoRamo(p.ramo);
@@ -229,6 +263,9 @@ export function Relatorio() {
                   </div>
                   <p className="mt-1.5 text-[12.5px] text-muted">
                     {p.presente} presenças · {p.falta} faltas · {p.justificada} justificadas · {p.total} chamadas
+                    {(p.faltasSeguidas ?? 0) >= 2 ? (
+                      <span className="text-falta"> · {p.faltasSeguidas} seguidas</span>
+                    ) : null}
                   </p>
                 </li>
               );

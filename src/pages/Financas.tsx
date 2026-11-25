@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApi, useAuth } from '../lib/auth';
 import { ErroApi } from '../lib/api';
 import { hojeISO, semAcento, useDados } from '../lib/dados';
 import { ramo as corDoRamo } from '../lib/ramos';
 import { Carregando, Erro, Vazio } from '../components/Estados';
+import { reduzir } from '../lib/foto';
 import type { Integrante } from '../lib/tipos';
 
 type Lancamento = {
@@ -18,6 +19,7 @@ type Lancamento = {
   registrado: string;
   observacao: string;
   idIntegrante: string;
+  comprovante: string;
 };
 
 type Caixa = {
@@ -180,6 +182,7 @@ function Caixa_({ api }: { api: Api }) {
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-medium">{l.nome || l.categoria}</span>
                         <span className="block truncate text-[12.5px] text-muted">
+                          {l.comprovante ? '📎 ' : ''}
                           {formatarData(l.data)} · {l.categoria}
                           {l.mes && l.mes !== 'Não se aplica' ? ` · ${nomeDoMes(l.mes)}` : ''}
                         </span>
@@ -243,8 +246,29 @@ function FormularioLancamento({
 }) {
   const [l, setL] = useState<Partial<Lancamento>>(inicial);
   const [salvando, setSalvando] = useState(false);
+  const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState(inicial.nome ?? '');
+  const camera = useRef<HTMLInputElement>(null);
+  const galeria = useRef<HTMLInputElement>(null);
+
+  const anexar = async (arquivo: File) => {
+    setEnviandoComprovante(true);
+    setErro(null);
+    try {
+      const imagem = await reduzir(arquivo, 1400);
+      const r = await api<{ url: string }>('foto.enviar', {
+        imagem,
+        tipo: 'recibo',
+        nome: `comprovante ${l.categoria || ''} ${l.nome || ''}`.trim(),
+      });
+      setL((atual) => ({ ...atual, comprovante: r.url }));
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : 'Não foi possível enviar o comprovante.');
+    } finally {
+      setEnviandoComprovante(false);
+    }
+  };
 
   const saida = (l.tipo ?? 'Entrada').toLowerCase().startsWith('sa');
   const categorias = saida ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA;
@@ -405,6 +429,63 @@ function FormularioLancamento({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-4 border-t border-line pt-3.5">
+          <span className="text-[12.5px] text-muted">Comprovante</span>
+          <input
+            ref={camera}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void anexar(f);
+            }}
+          />
+          <input
+            ref={galeria}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void anexar(f);
+            }}
+          />
+
+          {l.comprovante ? (
+            <div className="mt-2 flex items-center gap-3">
+              <a href={l.comprovante} target="_blank" rel="noopener" className="shrink-0">
+                <img src={l.comprovante} alt="Comprovante anexado" className="h-16 w-16 rounded-lg object-cover" />
+              </a>
+              <button type="button" onClick={() => setL({ ...l, comprovante: '' })} className="text-[13.5px] font-semibold text-falta underline">
+                Remover
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => camera.current?.click()}
+                disabled={enviandoComprovante}
+                className="flex-1 rounded-full border border-line py-2 text-[13.5px] font-semibold disabled:opacity-60"
+              >
+                {enviandoComprovante ? 'Enviando…' : 'Tirar foto'}
+              </button>
+              <button
+                type="button"
+                onClick={() => galeria.current?.click()}
+                disabled={enviandoComprovante}
+                className="flex-1 rounded-full border border-line py-2 text-[13.5px] font-semibold disabled:opacity-60"
+              >
+                Escolher imagem
+              </button>
+            </div>
+          )}
         </div>
 
         <label className="mt-3 block">

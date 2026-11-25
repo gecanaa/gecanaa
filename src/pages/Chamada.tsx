@@ -415,22 +415,35 @@ function textoDoResumo(
   const presentes = itens.filter((i) => i.status === 'Presente');
   const justificadas = itens.filter((i) => i.status === 'Falta justificada');
   const faltas = itens.filter((i) => i.status === 'Falta');
-  const dia = data.split('-').reverse().join('/');
+  const [ano, mes, dia] = data.split('-');
+  const porExtensoCurto = new Date(Number(ano), Number(mes) - 1, Number(dia)).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  });
+  const nomes = (lista: typeof itens, sufixo?: (i: (typeof itens)[number]) => string) =>
+    lista.map((i) => `• ${i.nome.trim()}${sufixo ? sufixo(i) : ''}`).join('\n');
 
-  const linhas = [
-    `*${ramo} — chamada de ${dia}*`,
-    `${presentes.length} ${presentes.length === 1 ? 'presente' : 'presentes'} de ${itens.length}`,
+  const partes = [
+    `⚜️ *${ramo} — ${dia}/${mes}/${ano}*`,
+    `_${porExtensoCurto}_`,
+    '',
+    `✅ *Presentes (${presentes.length}/${itens.length})*`,
+    presentes.length ? nomes(presentes) : '• ninguém registrado',
   ];
-  if (faltas.length) {
-    linhas.push('', `*Faltas (${faltas.length}):*`, faltas.map((i) => `• ${i.nome}`).join('\n'));
-  }
+
   if (justificadas.length) {
-    linhas.push(
+    partes.push(
       '',
-      `*Faltas justificadas (${justificadas.length}):*`,
-      justificadas.map((i) => `• ${i.nome}${i.justificativa ? ` — ${i.justificativa}` : ''}`).join('\n'),
+      `📝 *Faltas justificadas (${justificadas.length})*`,
+      nomes(justificadas, (i) => (i.justificativa ? ` — ${i.justificativa}` : '')),
     );
   }
-  linhas.push('', 'Grupo Escoteiro Canaã 52/DF');
-  return linhas.join('\n');
+  if (faltas.length) {
+    partes.push('', `❌ *Faltas (${faltas.length})*`, nomes(faltas));
+  }
+
+  const taxa = itens.length ? Math.round((presentes.length / itens.length) * 100) : 0;
+  partes.push('', `📊 Presença: *${taxa}%*`, '', '🏕️ _Grupo Escoteiro Canaã 52/DF_');
+  return partes.join('\n');
 }

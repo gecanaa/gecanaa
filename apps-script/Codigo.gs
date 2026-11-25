@@ -402,10 +402,31 @@ function enviarFoto_(usuario, payload) {
     nome.replace(/[^\p{L}\p{N} ]/gu, '').substring(0, 60) + ' - ' +
     Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyyMMdd-HHmmss') + '.jpg');
 
-  const arquivo = pastaDeFotos_().createFile(blob);
+  const recibo = String(payload.tipo || '') === 'recibo';
+  const arquivo = (recibo ? pastaDeRecibos_() : pastaDeFotos_()).createFile(blob);
   arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  registrarLog_(usuario, 'Cadastro', 'Foto', 'Enviou a foto de: ' + nome);
+  registrarLog_(usuario, recibo ? 'Financeiro' : 'Cadastro', 'Foto',
+    (recibo ? 'Anexou o comprovante: ' : 'Enviou a foto de: ') + nome);
   return { url: 'https://drive.google.com/thumbnail?id=' + arquivo.getId() + '&sz=w500' };
+}
+
+function pastaDeRecibos_() {
+  return pastaGuardada_('RECIBOS_PASTA_ID', 'Comprovantes SGE Canaã 52');
+}
+
+function pastaGuardada_(propriedade, nome) {
+  const props = PropertiesService.getScriptProperties();
+  const guardada = props.getProperty(propriedade);
+  if (guardada) {
+    try {
+      return DriveApp.getFolderById(guardada);
+    } catch (e) {
+      /* pasta apagada: cria outra abaixo */
+    }
+  }
+  const pasta = DriveApp.createFolder(nome);
+  props.setProperty(propriedade, pasta.getId());
+  return pasta;
 }
 
 function pastaDeFotos_() {
@@ -517,6 +538,7 @@ function resumoPresencas_(payload) {
 
   const chamadas = {};
   const porPessoa = {};
+  const historico = {};
   linhas.forEach(function (l) {
     const d = normalizarData_(l['DATA']);
     chamadas[d + '|' + l['Ramo']] = true;
@@ -531,6 +553,8 @@ function resumoPresencas_(payload) {
     if (st.indexOf('presen') === 0) p.presente++;
     else if (st.indexOf('justific') >= 0) p.justificada++;
     else p.falta++;
+
+    (historico[chave] || (historico[chave] = [])).push({ data: d, presente: st.indexOf('presen') === 0 });
   });
 
   return {
@@ -538,6 +562,17 @@ function resumoPresencas_(payload) {
     pessoas: Object.keys(porPessoa).map(function (k) {
       const p = porPessoa[k];
       p.percentual = p.total ? Math.round((p.presente / p.total) * 100) : 0;
+
+      // Quantas chamadas seguidas a pessoa não aparece, contando da última
+      // para trás: é o sinal de quem está se afastando.
+      const dias = (historico[k] || []).sort(function (a, b) { return a.data < b.data ? 1 : -1; });
+      let seguidas = 0;
+      for (let i = 0; i < dias.length; i++) {
+        if (dias[i].presente) break;
+        seguidas++;
+      }
+      p.faltasSeguidas = seguidas;
+      p.ultimaPresenca = (dias.filter(function (d) { return d.presente; })[0] || {}).data || '';
       return p;
     }).sort(function (a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); }),
   };
@@ -546,6 +581,7 @@ function resumoPresencas_(payload) {
 // ------------------------------------------------------------------- financeiro
 
 const COL_ID_INTEGRANTE_FIN = 'ID Integrante';
+const COL_COMPROVANTE = 'Comprovante';
 
 function lerLancamentos_() {
   return tabela_(ABAS.financeiro).linhas.map(function (l) {
@@ -561,6 +597,7 @@ function lerLancamentos_() {
       registrado: String(l['REGISTRADO'] || '').trim(),
       observacao: String(l['Observação'] || '').trim(),
       idIntegrante: String(l[COL_ID_INTEGRANTE_FIN] || '').trim(),
+      comprovante: String(l[COL_COMPROVANTE] || '').trim(),
       _linha: l._linha,
     };
   });
@@ -616,8 +653,11 @@ function salvarLancamento_(usuario, payload) {
   return comTrava_(function () {
     const tab = tabela_(ABAS.financeiro);
     garantirColuna_(tab.aba, COL_ID_INTEGRANTE_FIN);
-    const cabecalho = tab.cabecalho.indexOf(COL_ID_INTEGRANTE_FIN) === -1
-      ? tab.cabecalho.concat([COL_ID_INTEGRANTE_FIN]) : tab.cabecalho;
+    garantirColuna_(tab.aba, COL_COMPROVANTE);
+    let cabecalho = tab.cabecalho.slice();
+    [COL_ID_INTEGRANTE_FIN, COL_COMPROVANTE].forEach(function (col) {
+      if (cabecalho.indexOf(col) === -1) cabecalho = cabecalho.concat([col]);
+    });
 
     const existente = payload.id
       ? tab.linhas.filter(function (l) { return String(l['ID']) === String(payload.id); })[0]
@@ -635,6 +675,7 @@ function salvarLancamento_(usuario, payload) {
     linha['REGISTRADO'] = existente ? existente['REGISTRADO'] : (usuario.nome || usuario.email);
     linha['Observação'] = String(payload.observacao || '').trim();
     linha[COL_ID_INTEGRANTE_FIN] = String(payload.idIntegrante || '');
+    linha[COL_COMPROVANTE] = String(payload.comprovante || (existente ? existente[COL_COMPROVANTE] : '') || '');
 
     escreverLinha_(tab.aba, cabecalho, linha, existente ? existente._linha : null);
     registrarLog_(usuario, 'Financeiro', existente ? 'Edição' : 'Inclusão',
