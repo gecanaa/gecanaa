@@ -7,6 +7,7 @@ import { ordenarRamos, ramo as corDoRamo } from '../lib/ramos';
 import { useZoomLiberado } from '../lib/zoom';
 import { BarraRamosFixa } from '../components/BarraRamos';
 import { Segmentado } from '../components/Segmentado';
+import { gravarUltima, lerUltima } from '../lib/local';
 import { Carregando, Erro, Vazio } from '../components/Estados';
 
 type Pessoa = {
@@ -39,19 +40,24 @@ export function Relatorio() {
   const [de, setDe] = useState(mesesAtras(3));
   const [ate, setAte] = useState(hojeISO());
   const [filtroRamo, setFiltroRamo] = useState('');
-  const [resumo, setResumo] = useState<Resumo | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  const chaveCache = `resumo|${de}|${ate}|${filtroRamo}`;
+  const [resumo, setResumo] = useState<Resumo | null>(() => lerUltima<Resumo>(chaveCache));
+  const [carregando, setCarregando] = useState(!resumo);
   const [erro, setErro] = useState<string | null>(null);
 
   const ramos = useMemo(() => ordenarRamos(integrantes.map((i) => i.ramo)), [integrantes]);
 
   useEffect(() => {
     let cancelado = false;
-    setCarregando(true);
+    const guardado = lerUltima<Resumo>(chaveCache);
+    if (guardado) setResumo(guardado);
+    setCarregando(!guardado);
     setErro(null);
     api<Resumo>('presencas.resumo', { de, ate, ramo: filtroRamo })
       .then((r) => {
-        if (!cancelado) setResumo(r);
+        if (cancelado) return;
+        setResumo(r);
+        gravarUltima(chaveCache, r);
       })
       .catch((e) => {
         if (!cancelado) setErro(e instanceof ErroApi ? e.message : 'Não foi possível montar o relatório.');
@@ -62,7 +68,7 @@ export function Relatorio() {
     return () => {
       cancelado = true;
     };
-  }, [api, de, ate, filtroRamo]);
+  }, [api, de, ate, filtroRamo, chaveCache]);
 
   const media = useMemo(() => {
     if (!resumo?.pessoas.length) return 0;

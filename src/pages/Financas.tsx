@@ -8,6 +8,7 @@ import { Carregando, Erro, Vazio } from '../components/Estados';
 import { Icone } from '../components/Icone';
 import { Segmentado } from '../components/Segmentado';
 import { reduzir } from '../lib/foto';
+import { gravarUltima, lerUltima } from '../lib/local';
 import { compartilharPDF, extratoPDF, reciboPDF } from '../lib/pdf';
 import type { Integrante } from '../lib/tipos';
 
@@ -122,8 +123,9 @@ function Caixa_({ api }: { api: Api }) {
   const { integrantes } = useDados();
   const [de, setDe] = useState(primeiroDiaDoMes());
   const [ate, setAte] = useState(hojeISO());
-  const [caixa, setCaixa] = useState<Caixa | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  const chaveCache = `caixa|${de}|${ate}`;
+  const [caixa, setCaixa] = useState<Caixa | null>(() => lerUltima<Caixa>(chaveCache));
+  const [carregando, setCarregando] = useState(!caixa);
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lancamento> | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -131,17 +133,24 @@ function Caixa_({ api }: { api: Api }) {
   const carregar = useCallback(async () => {
     setErro(null);
     try {
-      setCaixa(await api<Caixa>('financeiro.listar', { de, ate }));
+      const novo = await api<Caixa>('financeiro.listar', { de, ate });
+      setCaixa(novo);
+      gravarUltima(chaveCache, novo);
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível abrir o caixa.');
     } finally {
       setCarregando(false);
     }
-  }, [api, de, ate]);
+  }, [api, de, ate, chaveCache]);
 
   useEffect(() => {
+    const guardado = lerUltima<Caixa>(chaveCache);
+    if (guardado) {
+      setCaixa(guardado);
+      setCarregando(false);
+    }
     void carregar();
-  }, [carregar]);
+  }, [carregar, chaveCache]);
 
   const lancamentos = caixa?.lancamentos ?? [];
   const categorias = caixa?.categorias ?? [];
@@ -314,6 +323,9 @@ function FormularioLancamento({
 }) {
   const { gravarDepois } = useDados();
   const [l, setL] = useState<Partial<Lancamento>>(inicial);
+  // Lançamento existente abre para leitura; editar é uma decisão, não um
+  // toque sem querer em cima de dinheiro já registrado.
+  const [editando, setEditando] = useState(!inicial.id);
   const [salvando, setSalvando] = useState(false);
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   const [gerandoRecibo, setGerandoRecibo] = useState(false);
@@ -354,6 +366,10 @@ function FormularioLancamento({
   const guardar = () => {
     if (!Number(l.valor)) {
       setErro('Informe um valor maior que zero.');
+      return;
+    }
+    if (ehMensalidade && !l.idIntegrante) {
+      setErro('Escolha de quem é a mensalidade.');
       return;
     }
     const registro = {
@@ -422,6 +438,58 @@ function FormularioLancamento({
 
         {erro ? <Erro mensagem={erro} /> : null}
 
+        {!editando ? (
+          <>
+            <p
+              className="mt-4 font-display text-[2rem] leading-none font-[800]"
+              style={{ color: saida ? 'var(--color-falta)' : 'var(--color-presente)' }}
+            >
+              {saida ? '−' : '+'} {moeda(Number(l.valor ?? 0))}
+            </p>
+
+            <dl className="mt-4 space-y-2 text-[14px]">
+              <LinhaLeitura rotulo={saida ? 'Pago a' : 'Recebido de'} valor={nomeBonito(l.nome ?? '')} />
+              <LinhaLeitura rotulo="Categoria" valor={l.categoria} />
+              {ehMensalidade ? <LinhaLeitura rotulo="Mês" valor={l.mes ? nomeDoMes(l.mes) : ''} /> : null}
+              <LinhaLeitura rotulo="Data" valor={formatarData(l.data ?? '')} />
+              <LinhaLeitura rotulo="Forma" valor={l.metodo} />
+              <LinhaLeitura rotulo="Registrado por" valor={l.registrado} />
+              <LinhaLeitura rotulo="Observação" valor={l.observacao} />
+            </dl>
+
+            {l.comprovante ? (
+              <a href={l.comprovante} target="_blank" rel="noopener" className="mt-3 block">
+                <img src={l.comprovante} alt="Comprovante" className="h-28 w-full rounded-lg object-cover" />
+              </a>
+            ) : null}
+
+            <div className="mt-5 flex gap-3">
+              <button type="button" onClick={aoFechar} className="rounded-full border border-line px-5 py-2.5 text-[15px] font-semibold">
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => void enviarRecibo()}
+                disabled={gerandoRecibo}
+                aria-label="Recibo em PDF"
+                title="Recibo em PDF"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ouro shadow-[inset_0_0_0_1.5px_var(--color-ouro)] disabled:opacity-50"
+              >
+                <Icone nome="imprimir" className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditando(true)}
+                className="flex-1 rounded-full bg-ouro py-2.5 text-[15px] font-semibold text-preto"
+              >
+                Editar
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {editando ? (
+        <>
         <div className="mt-4 flex gap-2">
           {['Entrada', 'Saída'].map((t) => (
             <button
@@ -483,19 +551,43 @@ function FormularioLancamento({
           </label>
         ) : null}
 
-        <label className="mt-3 block">
-          <span className="text-[12.5px] text-muted">{saida ? 'Pago a' : 'Recebido de'}</span>
-          <input
-            value={busca}
-            onChange={(e) => {
-              setBusca(e.target.value);
-              setL({ ...l, nome: e.target.value, idIntegrante: '' });
-            }}
-            placeholder="Nome"
-            className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
-          />
-        </label>
-        {sugestoes.length ? (
+        {ehMensalidade ? (
+          <label className="mt-3 block">
+            <span className="text-[12.5px] text-muted">Recebido de</span>
+            <select
+              value={l.idIntegrante ?? ''}
+              onChange={(e) => {
+                const escolhido = integrantes.find((i) => i.id === e.target.value);
+                setL({ ...l, idIntegrante: escolhido?.id ?? '', nome: escolhido ? escolhido.nome.trim() : '' });
+                setBusca(escolhido ? escolhido.nome.trim() : '');
+              }}
+              className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+            >
+              <option value="">Escolha o integrante</option>
+              {integrantes
+                .filter((i) => i.status === 'Ativo')
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {nomeBonito(i.nome)} · {i.ramo || 'sem ramo'}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : (
+          <label className="mt-3 block">
+            <span className="text-[12.5px] text-muted">{saida ? 'Pago a' : 'Recebido de'}</span>
+            <input
+              value={busca}
+              onChange={(e) => {
+                setBusca(e.target.value);
+                setL({ ...l, nome: e.target.value, idIntegrante: '' });
+              }}
+              placeholder="Nome"
+              className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px]"
+            />
+          </label>
+        )}
+        {!ehMensalidade && sugestoes.length ? (
           <ul className="mt-1 overflow-hidden rounded-lg border border-line">
             {sugestoes.map((i) => (
               <li key={i.id}>
@@ -604,21 +696,23 @@ function FormularioLancamento({
           </button>
         </div>
         {l.id ? (
-          <>
-            <button
-              type="button"
-              onClick={() => void enviarRecibo()}
-              disabled={gerandoRecibo}
-              className="mt-3 w-full rounded-full border border-ouro py-2.5 text-[14px] font-semibold text-ouro disabled:opacity-60"
-            >
-              {gerandoRecibo ? 'Gerando recibo…' : 'Recibo em PDF para o WhatsApp'}
-            </button>
-            <button type="button" onClick={() => void excluir()} disabled={salvando} className="mt-3 w-full text-[13.5px] font-semibold text-falta underline">
-              Excluir este lançamento
-            </button>
-          </>
+          <button type="button" onClick={() => void excluir()} disabled={salvando} className="mt-3 w-full text-[13.5px] font-semibold text-falta underline">
+            Excluir este lançamento
+          </button>
+        ) : null}
+        </>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function LinhaLeitura({ rotulo, valor }: { rotulo: string; valor?: string }) {
+  const vazio = !valor?.trim();
+  return (
+    <div className="flex items-baseline gap-3">
+      <dt className="w-[42%] shrink-0 text-[12.5px] text-muted">{rotulo}</dt>
+      <dd className={vazio ? 'text-muted' : ''}>{vazio ? 'Não informado' : valor}</dd>
     </div>
   );
 }
@@ -626,8 +720,9 @@ function FormularioLancamento({
 function MensalidadesTela({ api }: { api: Api }) {
   const { integrantes } = useDados();
   const [mes, setMes] = useState(mesAtual());
-  const [dados, setDados] = useState<Mensalidades | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  const chaveCache = `mensalidades|${mes}`;
+  const [dados, setDados] = useState<Mensalidades | null>(() => lerUltima<Mensalidades>(chaveCache));
+  const [carregando, setCarregando] = useState(!dados);
   const [erro, setErro] = useState<string | null>(null);
   const [soDevendo, setSoDevendo] = useState(false);
   const [lancando, setLancando] = useState<Partial<Lancamento> | null>(null);
@@ -635,17 +730,24 @@ function MensalidadesTela({ api }: { api: Api }) {
   const carregar = useCallback(async () => {
     setErro(null);
     try {
-      setDados(await api<Mensalidades>('mensalidades.mes', { mes }));
+      const novo = await api<Mensalidades>('mensalidades.mes', { mes });
+      setDados(novo);
+      gravarUltima(chaveCache, novo);
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível abrir as mensalidades.');
     } finally {
       setCarregando(false);
     }
-  }, [api, mes]);
+  }, [api, mes, chaveCache]);
 
   useEffect(() => {
+    const guardado = lerUltima<Mensalidades>(chaveCache);
+    if (guardado) {
+      setDados(guardado);
+      setCarregando(false);
+    }
     void carregar();
-  }, [carregar]);
+  }, [carregar, chaveCache]);
 
   const lista = useMemo(
     () => (dados?.pessoas ?? []).filter((p) => !soDevendo || p.situacao === 'Em aberto' || p.situacao === 'Parcial'),

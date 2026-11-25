@@ -43,17 +43,17 @@ export function BarraRamos({
           >
             <span
               aria-hidden="true"
-              className="grid h-9 w-9 place-items-center rounded-full"
+              className="grid h-10 w-10 place-items-center rounded-full"
               style={
                 escolhido
                   ? { background: o.cor, color: 'var(--color-preto)' }
                   : { color: o.cor, boxShadow: `inset 0 0 0 1.5px ${o.cor}` }
               }
             >
-              <IconeDoRamo ramo={o.valor} todos={!o.valor && !!todos} className="h-5 w-5" />
+              <IconeDoRamo ramo={o.valor} todos={!o.valor && !!todos} className="h-6 w-6" />
             </span>
             <span
-              className={`w-full truncate text-center text-[10px] leading-tight ${
+              className={`w-full truncate text-center text-[10.5px] leading-tight ${
                 escolhido ? 'font-semibold text-texto' : 'text-muted'
               }`}
             >
@@ -69,7 +69,7 @@ export function BarraRamos({
 /** A mesma fileira presa ao rodapé, logo acima das abas. */
 export function BarraRamosFixa(props: Parameters<typeof BarraRamos>[0]) {
   return (
-    <div className="nao-imprime fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-2 py-1.5 backdrop-blur">
+    <div className="nao-imprime fixed inset-x-0 bottom-[calc(62px+env(safe-area-inset-bottom))] z-10 border-t border-line bg-card/95 px-2 py-1.5 backdrop-blur">
       <BarraRamos {...props} />
     </div>
   );

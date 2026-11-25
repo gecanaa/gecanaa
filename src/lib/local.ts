@@ -220,3 +220,18 @@ export function limparRascunhosAntigos(dias = 30): void {
     /* nada a fazer */
   }
 }
+
+// ------------------------------------------------- última resposta de consulta
+
+/**
+ * Telas de leitura (relatório, caixa, mensalidades) guardam a última resposta
+ * e abrem com ela na tela enquanto buscam a atualização. Assim ninguém fica
+ * olhando para uma tela de espera a cada troca de aba.
+ */
+export function lerUltima<T>(chave: string): T | null {
+  return ler<T>(`sge:ultima:${chave}`);
+}
+
+export function gravarUltima(chave: string, valor: unknown): void {
+  gravar(`sge:ultima:${chave}`, valor);
+}
